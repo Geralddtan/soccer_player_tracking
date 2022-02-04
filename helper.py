@@ -1,3 +1,4 @@
+import numpy as np
 
 def extract_cropped_image(image, top_left_x, top_left_y, bottom_right_x, bottom_right_y):
   return image[top_left_y:bottom_right_y, top_left_x:bottom_right_x].copy()

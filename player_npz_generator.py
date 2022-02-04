@@ -7,7 +7,7 @@ from detectron2 import model_zoo
 from detectron2.engine import DefaultPredictor
 import helper
 
-MATCH_ID = 906
+MATCH_ID = 904
 PLAYER_PICTURES_PATH = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Ground Truth Player Tracking Data/M-%d-GroundTruth/soccer-player-images/"%(MATCH_ID)
 MASKED_PLAYERS_PATH = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Ground Truth Player Tracking Data/M-%d-GroundTruth/soccer-player-images/all_masked_players/"%(MATCH_ID)
 MATCH_PICTURES_PATH = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Ground Truth Player Tracking Data/M-%d-GroundTruth/soccer-player-images/match_image/"%(MATCH_ID)
