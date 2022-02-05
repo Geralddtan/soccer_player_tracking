@@ -8,9 +8,16 @@ from copy import deepcopy
 
 pd.options.display.float_format = '{:.6f}'.format
 
-MATCH_ID = 901
-START_MS = 4032000  # 61680   #91680
-END_MS = 4040000 # 67040   #106880
+# M-908 (61680 to 67040) (certified correct) (25 fps)
+# M-907: 00:01:17 to 00:01:22 (77000 to 81960) (certified correct) (25 fps)
+# M-906 00:08:46 to 00:08:52 (526000 to 531960) (certified correct) (25 fps)
+# M-904 01:48:57 to 01:49:07 (6537000 to 6547000) (certified correct) (30 fps)
+# M-901 01:07:12 to 01:07:20 (4032000 to 4040000)  (certified correct) (25 fps)
+
+
+MATCH_ID = 906
+START_MS = 526000  # 61680   #91680
+END_MS = 531960 # 67040   #106880
 VIDEO = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Deep Sort/detectron2-deepsort-pytorch/original_vids/m-%03d.mp4' % MATCH_ID
 FPS = 25
 PER_FRAME = 1000 / FPS
