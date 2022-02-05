@@ -7,7 +7,7 @@ from detectron2 import model_zoo
 from detectron2.engine import DefaultPredictor
 import helper
 
-MATCH_ID = 904
+MATCH_ID = 906
 PLAYER_PICTURES_PATH = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Ground Truth Player Tracking Data/M-%d-GroundTruth/soccer-player-images/"%(MATCH_ID)
 MASKED_PLAYERS_PATH = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Ground Truth Player Tracking Data/M-%d-GroundTruth/soccer-player-images/all_masked_players/"%(MATCH_ID)
 MATCH_PICTURES_PATH = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Ground Truth Player Tracking Data/M-%d-GroundTruth/soccer-player-images/match_image/"%(MATCH_ID)
@@ -37,10 +37,10 @@ for file in files:
     player_masks = output['instances'][output['instances'].pred_classes == 0].pred_masks.cpu().numpy()
     for i in range(len(player_masks)):
         player_bbox_mask = helper.return_diff_output_images(frame, player_boxes[i], player_masks[i])
-        cv2.imwrite(MASKED_PLAYERS_PATH+str(counter)+".png", player_bbox_mask['masked_image_halved'])
+        cv2.imwrite(MASKED_PLAYERS_PATH+str(counter)+".png", player_bbox_mask['masked_cropped_image'])
         counter += 1
 
-input("Please trasnfer necessary images into their respective class folders")
+input("Please transfer necessary images into their respective class folders")
 
 for classes in TEAM_CLASS:
     class_pictures_path = PLAYER_PICTURES_PATH+classes
