@@ -7,11 +7,11 @@ import os
 import helper
 
 # settings and parameters
-MATCH_ID = 906
+MATCH_ID = 904
 VIDEO = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Deep Sort/detectron2-deepsort-pytorch/original_vids/m-%03d.mp4'%MATCH_ID
-START_MS = 526000   # possible sequence [58400, 67040], [67840, 72840], [75000, 82400], [91680, 106880], [108360, 118440], [120760,136040]
-END_MS = 528000 # 531960
-FPS = 25
+START_MS = 6537000   # possible sequence [58400, 67040], [67840, 72840], [75000, 82400], [91680, 106880], [108360, 118440], [120760,136040]
+END_MS = 6547000 # 531960
+FPS = 30
 PER_FRAME = 1000/FPS  # 40ms per frame
 MIN_DETECTOR_SCORE = 0.25
 COLOR_HIST_NPZ = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Ground Truth Player Tracking Data/M-%d-GroundTruth/soccer-player-npz/M-%d-player-npz.npz"%(MATCH_ID, MATCH_ID)
@@ -29,7 +29,7 @@ cfg.MODEL.DEVICE='cpu'   # cuda or cpu
 detector = DefaultPredictor(cfg)
 
 player_imgs = [[],[],[],[],[]]  # 0:team1_player, 1:team1_gk, 2:team2_player, 3:team2_gk, 4:referee
-team_color_hist = np.zeros(shape=(5, 4096), dtype=np.float32)
+team_color_hist = []
 # team_color_hist = []
 if os.path.exists(COLOR_HIST_NPZ):
     data = np.load(COLOR_HIST_NPZ, allow_pickle=True) #Loading external numpy array/pickled values
@@ -41,7 +41,7 @@ if os.path.exists(COLOR_HIST_NPZ):
                 # cv2.imshow('player_%d_%d'%(i,j), player_imgs[i][j])
                 color_hist.append(helper.return_halved_equalised_color_hist(player_imgs[i][j])['normalised_histogram']) #Append color histogram for all players
         # team_color_hist[i] = np.mean(np.array(color_hist), axis=0).astype(np.float32) #Average of x color histogram from each team
-        team_color_hist[i] = np.mean(np.array(color_hist).reshape(-1, 4096), axis=0).astype(np.float32)
+        team_color_hist.append(np.mean(np.array(color_hist), axis=0).astype(np.float32))
 
     # color histogram distance sanity check
     for i in range(5):

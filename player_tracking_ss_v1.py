@@ -8,18 +8,18 @@ from copy import deepcopy
 
 pd.options.display.float_format = '{:.6f}'.format
 
-MATCH_ID = 906
-START_MS = 526000  # 61680   #91680
-END_MS = 528000 # 67040   #106880
+MATCH_ID = 901
+START_MS = 4032000  # 61680   #91680
+END_MS = 4040000 # 67040   #106880
 VIDEO = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Deep Sort/detectron2-deepsort-pytorch/original_vids/m-%03d.mp4' % MATCH_ID
 FPS = 25
 PER_FRAME = 1000 / FPS
 DT_CSV = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/player_tracking_ss/csv/player_detection_colorhist/m-%03d-player-dt25-team-%d-%d.csv' % (
     MATCH_ID, START_MS, END_MS)
 DT_THRESHOLD = 0.7
-COLOR_THRESHOLD = 0.4
+COLOR_THRESHOLD = 0.2
 MAX_P = 1000
-TEAM = 0 # 0=team1, 1=team1_keeper, 2=team2, 3=team2_keeper, 4=referee
+TEAM = 2 # 0=team1, 1=team1_keeper, 2=team2, 3=team2_keeper, 4=referee
 ID0 = 18
 DEBUG = True
 

@@ -15,7 +15,7 @@ def removing_bottom_of_image(image):
 def create_normalised_color_histogram(image): #No more flattening (more intuitive sense)
     histr = cv2.calcHist([image],[0,1,2], None, [16,16,16], [1,256,1,256,1,256]) #[1,256] to ignore the black pixels in calculations
     # histr = cv2.normalize(histr, histr, norm_type = cv2.NORM_L1).flatten() #Normalise color histogram
-    histr = cv2.normalize(histr, histr, norm_type = cv2.NORM_L1).flatten() #Normalise color histogram #No flattining (gives similar results as with flattening but makes more intuitive sense)
+    histr = cv2.normalize(histr, histr, norm_type = cv2.NORM_L1) #Normalise color histogram #No flattining (gives similar results as with flattening but makes more intuitive sense)
     return histr
     # Here we compute histogram over 3 channels. Normally, we do it one by one so we can visualise them.
     # Now, we do it all together then normalise the histogram and flatten it for comparison
