@@ -15,7 +15,8 @@ FPS = 30
 PER_FRAME = 1000/FPS  # 40ms per frame
 MIN_DETECTOR_SCORE = 0.25
 COLOR_HIST_NPZ = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Ground Truth Player Tracking Data/M-%d-GroundTruth/soccer-player-npz/M-%d-player-npz.npz"%(MATCH_ID, MATCH_ID)
-OUT_CSV = './csv/player_detection_colorhist/m-%03d-player-dt%02d-team-%d-%d.csv'%(MATCH_ID, MIN_DETECTOR_SCORE*100, START_MS, END_MS)
+CSV_FILES = "Colorhist_optimized_intersect_csv"
+OUT_CSV = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/ALL_CSV/%s/player_detection_colorhist/m-%03d-player-dt25-team-%d-%d.csv' % (CSV_FILES,MATCH_ID, START_MS, END_MS)
 DEBUG = True
 
 # Pre-trained object detector
