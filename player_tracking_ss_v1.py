@@ -8,16 +8,16 @@ from copy import deepcopy
 
 pd.options.display.float_format = '{:.6f}'.format
 
-MATCH_ID = 906
-START_MS = 526000  # 61680   #91680
-END_MS = 531960  # 67040   #106880
+MATCH_ID = 908
+START_MS = 61680  # 61680   #91680
+END_MS = 67040  # 67040   #106880
 VIDEO = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Deep Sort/detectron2-deepsort-pytorch/original_vids/m-%03d.mp4' % MATCH_ID
 FPS = 25
 PER_FRAME = 1000 / FPS
 DT_CSV = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/player_tracking_ss/csv/player_detection_colorhist/m-%03d-player-dt25-team-%d-%d.csv' % (
     MATCH_ID, START_MS, END_MS)
 DT_THRESHOLD = 0.7
-COLOR_THRESHOLD = 0.6
+COLOR_THRESHOLD = 0.2
 MAX_P = 1000
 TEAM = 2 # 0=team1, 1=team1_keeper, 2=team2, 3=team2_keeper, 4=referee
 ID0 = 18
@@ -95,7 +95,7 @@ act_tracks, hold_tracks, delt_tracks = [], [], []
 
 player_boxes = pd.read_csv(DT_CSV).to_numpy()
 player_boxes = player_boxes[(player_boxes[:, 5] > DT_THRESHOLD)]  # Detectron confidence
-player_boxes = player_boxes[(np.min(player_boxes[:, 6:11], axis=1) < COLOR_THRESHOLD)]
+player_boxes = player_boxes[(np.max(player_boxes[:, 6:11], axis=1) > COLOR_THRESHOLD)]
 # [6:11] is the confidence score for team 1, t1 goalkeeper, t2, t2gk ,ref where lower is better (histogram similarity lower score better)
 player_boxes = player_boxes[(np.argmax(player_boxes[:, 6:11], axis=1) == TEAM)]
 # Filtering out only those rows where most similar to TEAM (only analyse that team)
@@ -501,7 +501,7 @@ while t < END_MS:
     #     cv2.waitKey(10)
     # else:
     #     cv2.waitKey(0)
-    cv2.waitKey(1)
+    cv2.waitKey(0)
     t += PER_FRAME
 
 # step 9, smoothing
