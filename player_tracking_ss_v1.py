@@ -22,7 +22,7 @@ def run_player_tracking_ss(match_details, to_save):
         COLOR_THRESHOLD = 0.2
         MAX_P = 1000
         TEAM_OPTIONS = [0,1,2,3,4]
-        OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/player_tracking_ss/data/m-%03d.txt" % (MATCH_ID)
+        OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/player_tracking_ss_color_hist_optimal/data/m-%03d.txt" % (MATCH_ID)
         ID0 = 1
         for team in TEAM_OPTIONS:
             TEAM = team # 0=team1, 1=team1_keeper, 2=team2, 3=team2_keeper, 4=referee
