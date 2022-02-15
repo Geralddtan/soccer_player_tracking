@@ -22,7 +22,7 @@ def run_player_tracking_ss(match_details, to_save):
         DT_THRESHOLD = 0.7
         COLOR_THRESHOLD = 0.6 # 0.2 # 0.6
         MAX_P = 1000
-        TEAM_OPTIONS = [0,2] # [0,1,2,3,4]
+        TEAM_OPTIONS = [0,1,2,3,4] # [0,1,2,3,4]
         OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/%s/data/m-%03d.txt" % (CSV_FILES, MATCH_ID)
         ID0 = 1
         for team in TEAM_OPTIONS:
@@ -102,7 +102,10 @@ def run_player_tracking_ss(match_details, to_save):
             player_boxes = pd.read_csv(DT_CSV).to_numpy()
             player_boxes = player_boxes[(player_boxes[:, 5] > DT_THRESHOLD)]  # Detectron confidence
             player_boxes = player_boxes[(np.min(player_boxes[:, 6:11], axis=1) < COLOR_THRESHOLD)]
+            player_boxes = player_boxes[(np.argmin(player_boxes[:, 6:11], axis=1) == TEAM)]
+            # Filtering out only those rows where most similar to TEAM (only analyse that team)
             # [6:11] is the confidence score for team 1, t1 goalkeeper, t2, t2gk ,ref where lower is better (histogram similarity lower score better)
+
             player_boxes[:, 0] = np.round(
                 (player_boxes[:, 0] - START_MS) / PER_FRAME + 1)  # time_ms to k (Change time ms to frame counter)
             player_boxes[:, 3] = player_boxes[:, 3] - player_boxes[:, 1]  # x2 to w
@@ -111,10 +114,6 @@ def run_player_tracking_ss(match_details, to_save):
             player_boxes[:, 2] = player_boxes[:, 2] + player_boxes[:, 4] / 2  # y1 to v
             player_boxes[:, 7] = np.argmin(player_boxes[:, 6:11], axis=1)  # team
             player_boxes = player_boxes[:, 0:8]
-
-            player_boxes_all_teams = player_boxes #Player boxes from all teams before filtering (For height om)
-            player_boxes = player_boxes[(np.argmin(player_boxes[:, 6:11], axis=1) == TEAM)]
-            # Filtering out only those rows where most similar to TEAM (only analyse that team)
 
             '''
             Final format for above is 
@@ -419,7 +418,7 @@ def run_player_tracking_ss(match_details, to_save):
                 #     cv2.waitKey(10)
                 # else:
                 #     cv2.waitKey(0)
-                cv2.waitKey(0)
+                cv2.waitKey(1)
                 print(t)
                 t += PER_FRAME
 
