@@ -5,6 +5,7 @@ from filterpy.kalman import KalmanFilter
 from filterpy.stats import mahalanobis
 from scipy.optimize import linear_sum_assignment
 from copy import deepcopy
+import helper_player_tracking
 
 pd.options.display.float_format = '{:.6f}'.format
 
@@ -16,13 +17,13 @@ def run_player_tracking_ss(match_details, to_save):
         VIDEO = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Deep Sort/detectron2-deepsort-pytorch/original_vids/m-%03d.mp4' % MATCH_ID
         FPS = detail[3]
         PER_FRAME = 1000 / FPS
-        CSV_FILES = "Colorhist_optimized_intersect_csv"
+        CSV_FILES = "full_image_color_hist_michael_hellinger_michael_npz" #"halved_image_color_hist_optimised_intersect_michael_npz" #halved_image_color_hist_optimised_intersect" # "full_image_color_hist_michael_hellinger" # "full_image_color_hist_michael_intersect" # "halved_image_color_hist_michael_intersect" # "halved_image_color_hist_optimised_intersect"
         DT_CSV = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/ALL_CSV/%s/player_detection_colorhist/m-%03d-player-dt25-team-%d-%d.csv' % (CSV_FILES,MATCH_ID, START_MS, END_MS)
         DT_THRESHOLD = 0.7
-        COLOR_THRESHOLD = 0.2
+        COLOR_THRESHOLD = 0.6 # 0.2 # 0.6
         MAX_P = 1000
-        TEAM_OPTIONS = [0,1,2,3,4]
-        OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/player_tracking_ss_color_hist_optimal/data/m-%03d.txt" % (MATCH_ID)
+        TEAM_OPTIONS = [0,2] # [0,1,2,3,4]
+        OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/%s/data/m-%03d.txt" % (CSV_FILES, MATCH_ID)
         ID0 = 1
         for team in TEAM_OPTIONS:
             TEAM = team # 0=team1, 1=team1_keeper, 2=team2, 3=team2_keeper, 4=referee
@@ -100,18 +101,21 @@ def run_player_tracking_ss(match_details, to_save):
 
             player_boxes = pd.read_csv(DT_CSV).to_numpy()
             player_boxes = player_boxes[(player_boxes[:, 5] > DT_THRESHOLD)]  # Detectron confidence
-            player_boxes = player_boxes[(np.max(player_boxes[:, 6:11], axis=1) > COLOR_THRESHOLD)]
+            player_boxes = player_boxes[(np.min(player_boxes[:, 6:11], axis=1) < COLOR_THRESHOLD)]
             # [6:11] is the confidence score for team 1, t1 goalkeeper, t2, t2gk ,ref where lower is better (histogram similarity lower score better)
-            player_boxes = player_boxes[(np.argmax(player_boxes[:, 6:11], axis=1) == TEAM)]
-            # Filtering out only those rows where most similar to TEAM (only analyse that team)
             player_boxes[:, 0] = np.round(
                 (player_boxes[:, 0] - START_MS) / PER_FRAME + 1)  # time_ms to k (Change time ms to frame counter)
             player_boxes[:, 3] = player_boxes[:, 3] - player_boxes[:, 1]  # x2 to w
             player_boxes[:, 4] = player_boxes[:, 4] - player_boxes[:, 2]  # y2 to h
             player_boxes[:, 1] = player_boxes[:, 1] + player_boxes[:, 3] / 2  # x1 to u
             player_boxes[:, 2] = player_boxes[:, 2] + player_boxes[:, 4] / 2  # y1 to v
-            player_boxes[:, 7] = np.argmax(player_boxes[:, 6:11], axis=1)  # team
+            player_boxes[:, 7] = np.argmin(player_boxes[:, 6:11], axis=1)  # team
             player_boxes = player_boxes[:, 0:8]
+
+            player_boxes_all_teams = player_boxes #Player boxes from all teams before filtering (For height om)
+            player_boxes = player_boxes[(np.argmin(player_boxes[:, 6:11], axis=1) == TEAM)]
+            # Filtering out only those rows where most similar to TEAM (only analyse that team)
+
             '''
             Final format for above is 
             [frame counter, u,v,w,h,detectron2 score, team1_similarity_score, final team number]
@@ -168,101 +172,7 @@ def run_player_tracking_ss(match_details, to_save):
             [cv2.circle(std_img, tuple(p), 1, (0, 0, 255), -1) for p in np.round(std_court_points).astype(int)]
             cv2.imshow('std_img', std_img)
 
-
             # Plotting soccer field
-
-            def get_H(t):
-                prev = court_gt[(court_gt.match_id == MATCH_ID) & (court_gt.time_ms <= t)].to_numpy()[-1, 1:10]
-                prev_t, prev_court = prev[0], prev[1:9].reshape(4, 2)
-                next = court_gt[(court_gt.match_id == MATCH_ID) & (court_gt.time_ms > t)].to_numpy()[0, 1:10]
-                next_t, next_court = next[0], next[1:9].reshape(4, 2)
-                curr_court = prev_court + (next_court - prev_court) * (t - prev_t) / (next_t - prev_t)
-                H = cv2.getPerspectiveTransform((np.array(curr_court).reshape(4, 2)).astype(np.float32),
-                                                (np.array(std_court_points[[14, 33, 15, 34]]).reshape(4, 2)).astype(np.float32))
-                return H
-
-
-            def iou(bbox, candidates):  # copied from Deep_Sort
-                """Computer intersection over union.
-
-                Parameters
-                ----------
-                bbox : ndarray
-                    A bounding box in format `(mid x, mid y, width, height)`.
-                candidates : ndarray
-                    A matrix of candidate bounding boxes (one per row) in the same format
-                    as `bbox`.
-
-                Returns
-                -------
-                ndarray
-                    The intersection over union in [0, 1] between the `bbox` and each
-                    candidate. A higher score means a larger fraction of the `bbox` is
-                    occluded by the candidate.
-
-                """
-                bbox_tl, bbox_br = bbox[:2] - bbox[2:] / 2, bbox[:2] + bbox[2:] / 2
-                candidates_tl = candidates[:, :2] - candidates[:, 2:] / 2
-                candidates_br = candidates[:, :2] + candidates[:, 2:] / 2
-
-                tl = np.c_[np.maximum(bbox_tl[0], candidates_tl[:, 0])[:, np.newaxis],
-                        np.maximum(bbox_tl[1], candidates_tl[:, 1])[:, np.newaxis]]
-                br = np.c_[np.minimum(bbox_br[0], candidates_br[:, 0])[:, np.newaxis],
-                        np.minimum(bbox_br[1], candidates_br[:, 1])[:, np.newaxis]]
-                wh = np.maximum(0., br - tl)
-
-                area_intersection = wh.prod(axis=1)
-                area_bbox = bbox[2:].prod()
-                area_candidates = candidates[:, 2:].prod(axis=1)
-                return area_intersection / (area_bbox + area_candidates - area_intersection)
-
-
-            def assign_by_iou(boxes_dt, boxes_track, min_iou=0.6):
-                '''
-                Returns 
-                row index returns final indexes (those removed didnt survive iou = 0.6)
-                col_ind returns final bbox assigned to each corresponding index 
-                    [5,4,3,2,1,0] means box[0] assigned to 5 etc
-                iou_matrix: Overall IOU matrix
-                '''
-                iou_matrix = []  # one row per tracked box, one col per detected box
-                for box in boxes_track:
-                    iou_matrix.append(iou(box, boxes_dt))
-                iou_matrix = np.array(iou_matrix)
-                cost = -1 * iou_matrix
-                row_ind, col_ind = linear_sum_assignment(cost)
-                to_keep = []
-                for i in range(row_ind.size):
-                    if iou_matrix[row_ind[i], col_ind[i]] >= min_iou:
-                        to_keep.append(i)
-                return row_ind[to_keep], col_ind[to_keep], iou_matrix
-
-
-            def assign_by_mahalanobis(boxes_dt, kfs, gating=5.0):  # change gating to 2.0
-                distance_matrix = []  # one row per tracked box, one col per kalman filter
-                for f in kfs:
-                    distance_matrix.append([mahalanobis(box, f.x[0:4], f.P[0:4, 0:4]) for box in boxes_dt])
-                distance_matrix = np.array(distance_matrix)
-                row_ind, col_ind = linear_sum_assignment(distance_matrix)
-                to_keep = []
-                for i in range(row_ind.size):
-                    if distance_matrix[row_ind[i], col_ind[i]] <= gating:
-                        to_keep.append(i)
-                return row_ind[to_keep], col_ind[to_keep], distance_matrix
-
-
-            def assign_by_euclidean(locs_dt, locs_track, gating=50.0):
-                distance_matrix = []  # one row per tracked locations, one col per detected locations
-                for p in locs_track:
-                    distance_matrix.append(np.linalg.norm(locs_dt - p, axis=1))
-                distance_matrix = np.array(distance_matrix)
-                row_ind, col_ind = linear_sum_assignment(distance_matrix)
-                to_keep = []
-                for i in range(row_ind.size):
-                    if distance_matrix[row_ind[i], col_ind[i]] <= gating:
-                        to_keep.append(i)
-                return row_ind[to_keep], col_ind[to_keep], distance_matrix
-
 
             cap = cv2.VideoCapture(VIDEO)
             t = START_MS
@@ -276,7 +186,7 @@ def run_player_tracking_ss(match_details, to_save):
                     player_ub = np.concatenate([boxes_k[:, 1:2], boxes_k[:, 2:3] + boxes_k[:, 4:5] / 2],
                                             axis=1)  # Player coordinate at middle top (using top of bbox as reference instead of bottom)
                     ''' Converting player location into court coordinates '''
-                    player_locs = cv2.perspectiveTransform((player_ub.reshape(-1, 2)).astype(np.float32)[np.newaxis], get_H(t))[0]
+                    player_locs = cv2.perspectiveTransform((player_ub.reshape(-1, 2)).astype(np.float32)[np.newaxis], helper_player_tracking.get_H(t, MATCH_ID, court_gt, std_court_points))[0]
                     boxes_k[:, 5:7] = player_locs
                     ''' boxes_k format here = [frame counter, u,v,w,h, court x coordinate, court y coordinate, final team number]'''
 
@@ -301,6 +211,8 @@ def run_player_tracking_ss(match_details, to_save):
                         (boxes_k[:, 5] >= 22.8) & (boxes_k[:, 5] <= 873.2) & (boxes_k[:, 6] >= 176) & (boxes_k[:, 6] <= 720)]
                     # optionally, correct box height based on average box height for the nearby player in the k-1 step
 
+                    print(boxes_k)
+
                 # step 2, call predict for all act_tracks
                 for track in act_tracks:
                     track['box_kf'].predict()  # Image pixels
@@ -314,7 +226,8 @@ def run_player_tracking_ss(match_details, to_save):
                     if len(candidates) > 0:
                         act_track_boxes = np.array([track['box_kf'].x[0:4] for track in candidates]).reshape(-1,
                                                                                                             4)  # For actual tracks where covariance < 200, get their image pixel coordinates
-                        row_ind, col_ind, _ = assign_by_iou(boxes_k[:, 1:5],
+
+                        row_ind, col_ind, _ = helper_player_tracking.assign_by_iou(boxes_k[:, 1:5],
                                                             act_track_boxes)  # Obtain matched box (from next frame) to these actual tracks
                         [candidates[row_ind[i]]['zs'].append(boxes_k[col_ind[i]]) for i in range(
                             row_ind.size)]  # Append these matches boxes to these candidates 'zs' which stores all of its past matches
@@ -340,7 +253,7 @@ def run_player_tracking_ss(match_details, to_save):
                         # row_ind, col_ind, distance_matrix = assign_by_mahalanobis(boxes_k2[:, 1:5], kfs) #old
 
                         act_track_boxs = np.array([track['box_kf'].x[0:2] for track in candidates]).reshape(-1, 2)
-                        row_ind, col_ind, distance_matrix = assign_by_euclidean(boxes_k2[:, 1:3],
+                        row_ind, col_ind, distance_matrix = helper_player_tracking.assign_by_euclidean(boxes_k2[:, 1:3],
                                                                                 act_track_boxs)  # [5:7] is court coordinate
                         [candidates[row_ind[i]]['zs'].append(boxes_k2[col_ind[i]]) for i in range(row_ind.size)]
                         act_tracks3 = [candidates[i] for i in range(len(candidates)) if i not in row_ind] + non_candidates
@@ -356,7 +269,7 @@ def run_player_tracking_ss(match_details, to_save):
                 # step 5, #Same as step 3/4 just using court coordinate instead
                 if len(act_tracks3) > 0:
                     act_track_locs = np.array([track['loc_kf'].x[0:2] for track in act_tracks3]).reshape(-1, 2)
-                    row_ind, col_ind, distance_matrix = assign_by_euclidean(boxes_k3[:, 5:7],
+                    row_ind, col_ind, distance_matrix = helper_player_tracking.assign_by_euclidean(boxes_k3[:, 5:7],
                                                                             act_track_locs)  # [5:7] is court coordinate
                     [act_tracks3[row_ind[i]]['zs'].append(boxes_k3[col_ind[i]]) for i in range(row_ind.size)]
                     # print("using court coordinate")
@@ -400,7 +313,7 @@ def run_player_tracking_ss(match_details, to_save):
                 if len(hold_tracks) > 0:
                     hold_track_boxes = np.array([track['box_kf'].x[0:4] for track in hold_tracks]).reshape(-1,
                                                                                                         4)  # Obtain prior prediction u,v,w,h
-                    row_ind, col_ind, _ = assign_by_iou(boxes_k[:, 1:5],
+                    row_ind, col_ind, _ = helper_player_tracking.assign_by_iou(boxes_k[:, 1:5],
                                                         hold_track_boxes)  # Assign all next frame boxes (boxes_k) to holding track as per IOU
                     [hold_tracks[row_ind[i]]['zs'].append(boxes_k[col_ind[i]]) for i in range(row_ind.size)]
                     # Assign next frame box (boxes_k[col_ind]) to holding track (hold_tracks[row_ind])
@@ -418,7 +331,7 @@ def run_player_tracking_ss(match_details, to_save):
                     # row_ind, col_ind, _ = assign_by_mahalanobis(boxes_k2[:, 1:5], kfs)
 
                     kfs = np.array([track['box_kf'].x[0:2] for track in hold_tracks2]).reshape(-1, 2)
-                    row_ind, col_ind, _ = assign_by_euclidean(boxes_k2[:, 1:3], kfs)  # [5:7] is court coordinate
+                    row_ind, col_ind, _ = helper_player_tracking.assign_by_euclidean(boxes_k2[:, 1:3], kfs)  # [5:7] is court coordinate
 
                     [hold_tracks2[row_ind[i]]['zs'].append(boxes_k2[col_ind[i]]) for i in range(row_ind.size)]
                     boxes_k3 = boxes_k2[[i for i in range(boxes_k2.shape[0]) if
@@ -506,7 +419,8 @@ def run_player_tracking_ss(match_details, to_save):
                 #     cv2.waitKey(10)
                 # else:
                 #     cv2.waitKey(0)
-                cv2.waitKey(1)
+                cv2.waitKey(0)
+                print(t)
                 t += PER_FRAME
 
             # step 9, smoothing
@@ -578,12 +492,11 @@ def run_player_tracking_ss(match_details, to_save):
                             rounded_box = np.round(box).astype(int)
                             cv2.rectangle(frame, (int(rounded_box[0]), int(rounded_box[1])),
                                         (int(rounded_box[2]), int(rounded_box[3])), color_list[track_i % len(color_list)], 1)
-                            print("HAHOHAHOHAHOHAHOHAHOHAHO")
                             # cv2.rectangle(frame, tuple(rounded_box[0:2]), tuple(rounded_box[2:4]), color_list[track_i%len(color_list)], 1)
                             print('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1' % (
                                 k, track_i + len(act_tracks) + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
                 cv2.imshow('frame', frame)
-                cv2.waitKey(1)
+                cv2.waitKey(20)
                 t += PER_FRAME
             
             ID0 += len(act_tracks)

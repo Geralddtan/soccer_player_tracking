@@ -73,3 +73,4 @@ def return_halved_equalised_color_hist(masked_cropped_image):
   output['normalised_histogram'] = normalised_histogram
 
   return output
+  
