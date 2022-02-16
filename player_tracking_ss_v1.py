@@ -23,7 +23,7 @@ def run_player_tracking_ss(match_details, to_save):
         COLOR_THRESHOLD = 0.6 # 0.2 # 0.6
         MAX_P = 1000
         TEAM_OPTIONS = [0,1,2,3,4]
-        OUT_CSV_FOLDER = "tuning/full_image_color_hist_michael_hellinger_michael_npz_edit_box_height_surrounding_players_0.6_detectron_threshold"
+        OUT_CSV_FOLDER = "tuning/full_image_color_hist_michael_hellinger_michael_npz_edit_box_height_surrounding_players_0.6_detectron_threshold_process_uncertainty_high"
         OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/%s/data/m-%03d.txt" % (OUT_CSV_FOLDER, MATCH_ID)
         ID0 = 1
         for team in TEAM_OPTIONS:
@@ -48,8 +48,10 @@ def run_player_tracking_ss(match_details, to_save):
                                 [0., 1., 0., 0., 0., 0.],
                                 [0., 0., 1., 0., 0., 0.],
                                 [0., 0., 0., 1., 0., 0.]])
+            # box_kf.Q = np.diag(
+            #     [0., 0., 0.25, 0.25, 1.5, 1.5])  # Uncertainty for state.  Higher uncertainty is put on du, dv at the moment.
             box_kf.Q = np.diag(
-                [0., 0., 0.25, 0.25, 1.5, 1.5])  # Uncertainty for state.  Higher uncertainty is put on du, dv at the moment.
+                [0., 0., 0.25, 0.25, 3.0, 3.0])  # Uncertainty for state.  Higher uncertainty is put on du, dv at the moment.
             box_kf.R = np.diag(
                 [81., 81., 100., 400.])  # Uncertainty for measurement.  Higher uncertainty is put on w, h at the moment.
             # box_kf.F = state transition matrix
@@ -72,7 +74,8 @@ def run_player_tracking_ss(match_details, to_save):
                                 [0., 0., 0., 1.]])
             loc_kf.H = np.array([[1., 0., 0., 0.],
                                 [0., 1., 0., 0.]])
-            loc_kf.Q = np.diag([0., 0., 0.5, 0.5])  #
+            # loc_kf.Q = np.diag([0., 0., 0.5, 0.5]) 
+            loc_kf.Q = np.diag([0., 0., 1.0, 1.0])  #
             loc_kf.R = np.diag([2000., 2000.])
             LOC_KF_INIT_P = np.diag([2000., 2000., 2000., 2000.])  # Equal uncertainty for x,y,dx,dy
 
@@ -451,7 +454,14 @@ def run_player_tracking_ss(match_details, to_save):
                 print(k)
                 t += PER_FRAME
 
+
+            # print("BOX_KF")
+            # print(act_tracks[0]['box_kf'])
+            # print("BOX_XS")
+            # print(act_tracks[0]['box_xs'])
+
             # step 9, smoothing
+            '''Smoothing using each tracks mean and covariance'''
             for track in act_tracks:
                 smoothed_xs, smoothed_Ps, _, _ = track['box_kf'].rts_smoother(np.array(track['box_xs']).reshape(-1, 6, 1),
                                                                             np.array(track['box_Ps']).reshape(-1, 6, 6))
@@ -523,7 +533,7 @@ def run_player_tracking_ss(match_details, to_save):
                             print('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1' % (
                                 k, track_i + len(act_tracks) + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
                 cv2.imshow('frame', frame)
-                cv2.waitKey(20)
+                cv2.waitKey(0)
                 t += PER_FRAME
             
             ID0 += len(act_tracks)
