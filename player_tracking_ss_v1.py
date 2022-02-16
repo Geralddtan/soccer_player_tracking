@@ -23,7 +23,7 @@ def run_player_tracking_ss(match_details, to_save):
         COLOR_THRESHOLD = 0.6 # 0.2 # 0.6
         MAX_P = 1000
         TEAM_OPTIONS = [0,1,2,3,4] # [0,1,2,3,4]
-        OUT_CSV_FOLDER = "tuning/full_image_color_hist_michael_hellinger_michael_npz_0.8_detectron_threshold"
+        OUT_CSV_FOLDER = "tuning/full_image_color_hist_michael_hellinger_michael_npz_edit_box_height_previous_frame"
         OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/%s/data/m-%03d.txt" % (OUT_CSV_FOLDER, MATCH_ID)
         ID0 = 1
         for team in TEAM_OPTIONS:
@@ -103,9 +103,9 @@ def run_player_tracking_ss(match_details, to_save):
             player_boxes = pd.read_csv(DT_CSV).to_numpy()
             player_boxes = player_boxes[(player_boxes[:, 5] > DT_THRESHOLD)]  # Detectron confidence
             player_boxes = player_boxes[(np.min(player_boxes[:, 6:11], axis=1) < COLOR_THRESHOLD)]
-            player_boxes = player_boxes[(np.argmin(player_boxes[:, 6:11], axis=1) == TEAM)]
-            # Filtering out only those rows where most similar to TEAM (only analyse that team)
-            # [6:11] is the confidence score for team 1, t1 goalkeeper, t2, t2gk ,ref where lower is better (histogram similarity lower score better)
+            # player_boxes = player_boxes[(np.argmin(player_boxes[:, 6:11], axis=1) == TEAM)]
+            # # Filtering out only those rows where most similar to TEAM (only analyse that team)
+            # # [6:11] is the confidence score for team 1, t1 goalkeeper, t2, t2gk ,ref where lower is better (histogram similarity lower score better)
 
             player_boxes[:, 0] = np.round(
                 (player_boxes[:, 0] - START_MS) / PER_FRAME + 1)  # time_ms to k (Change time ms to frame counter)
@@ -115,6 +115,11 @@ def run_player_tracking_ss(match_details, to_save):
             player_boxes[:, 2] = player_boxes[:, 2] + player_boxes[:, 4] / 2  # y1 to v
             player_boxes[:, 7] = np.argmin(player_boxes[:, 6:11], axis=1)  # team
             player_boxes = player_boxes[:, 0:8]
+            player_boxes_all_classes = player_boxes #To get all players from all classes for box height comparison
+            player_boxes = player_boxes[(player_boxes[:, 7] == TEAM)]
+
+            frames_player_bbox_dict = {}
+
 
             '''
             Final format for above is 
@@ -146,29 +151,7 @@ def run_player_tracking_ss(match_details, to_save):
                 [-court_width / 2, 11], [court_width / 2, 11], [-court_width / 2, court_length - 11],
                 [court_width / 2, court_length - 11]])
 
-
-            def get_standard_court(court_points, img_size=(896, 896, 3), sport='soccer', line_thickness=2):
-                if sport == 'soccer':
-                    img = np.zeros(img_size, dtype=np.uint8)
-                    points = np.round(
-                        court_points[:, ::-1] * 8 + [(img_size[1] - court_points[19, 1] * 8) / 2, img_size[0] / 2]).astype(np.int)
-                    cv2.circle(img, tuple(points[10]), 73, (255, 0, 0), line_thickness)
-                    img[:, 0:points[8, 0]] = 0
-                    cv2.circle(img, tuple(points[29]), 73, (255, 0, 0), line_thickness)
-                    img[:, points[27, 0]:] = 0
-                    cv2.rectangle(img, tuple(points[14]), tuple(points[34]), (255, 0, 0), line_thickness)
-                    cv2.rectangle(img, tuple(points[4]), tuple(points[7]), (255, 0, 0), line_thickness)
-                    cv2.rectangle(img, tuple(points[0]), tuple(points[3]), (255, 0, 0), line_thickness)
-                    cv2.rectangle(img, tuple(points[19]), tuple(points[22]), (255, 0, 0), line_thickness)
-                    cv2.rectangle(img, tuple(points[23]), tuple(points[26]), (255, 0, 0), line_thickness)
-                    cv2.line(img, tuple(points[16]), tuple(points[18]), (255, 0, 0), line_thickness)
-                    cv2.circle(img, tuple(points[17]), 73, (255, 0, 0), line_thickness)
-                    cv2.circle(img, tuple(points[10]), 3, (0, 0, 255), -1)
-                    cv2.circle(img, tuple(points[29]), 3, (0, 0, 255), -1)
-                    return img, court_points[:, ::-1] * 8 + [(img_size[1] - court_points[19, 1] * 8) / 2, img_size[0] / 2]
-
-
-            std_img, std_court_points = get_standard_court(court_points, line_thickness=1)
+            std_img, std_court_points = helper_player_tracking.get_standard_court(court_points, line_thickness=1)
             [cv2.circle(std_img, tuple(p), 1, (0, 0, 255), -1) for p in np.round(std_court_points).astype(int)]
             cv2.imshow('std_img', std_img)
 
@@ -211,7 +194,77 @@ def run_player_tracking_ss(match_details, to_save):
                         (boxes_k[:, 5] >= 22.8) & (boxes_k[:, 5] <= 873.2) & (boxes_k[:, 6] >= 176) & (boxes_k[:, 6] <= 720)]
                     # optionally, correct box height based on average box height for the nearby player in the k-1 step
 
+                    print("HERE")
                     print(boxes_k)
+
+                    if (k != 1) and (boxes_k.size > 0) and (np.array(frames_player_bbox_dict[k-1]).size > 0): #Only perform editing of box height for frames starting from 2 onwards
+                        ''' 
+                        Utilising and instead of & due to short circuit feature. Subsequent condition not checked if first not met
+                        Need to check boxes_k.size again due to filtering of boxes from court coordinates
+                        '''
+                        previous_frame_player_bbox = np.array(frames_player_bbox_dict[k-1])
+                        print(previous_frame_player_bbox)
+                        for player_bbox_index in range(len(boxes_k)):
+                            player_bbox = boxes_k[player_bbox_index]
+                            player_distances = []  # one row per tracked locations, one col per detected locations
+                            for p in previous_frame_player_bbox:
+                                player_distances.append(np.linalg.norm(player_bbox[1:3] - p[1:3])) #Euclidean distance using pixels
+                                
+                            if np.min(player_distances) < 50: #Only if have a valid player in previous frame nearby
+                                nearby_player_previous_frame = previous_frame_player_bbox[np.argmin(player_distances)] 
+                                '''Calculate average height'''
+                                previous_height = nearby_player_previous_frame[4]
+                                helper_player_tracking.print_box_uvwh(frame, nearby_player_previous_frame[1:5], (100, 100, 100), 3)
+                                current_player_height = player_bbox[4]
+                                change_in_height_scaled = abs(1-(current_player_height/previous_height))
+
+                                if current_player_height < previous_height*0.7: #Smaller than 0.8 of the average height
+                                    u,v,w,h = player_bbox[1:5]
+                                    new_height = 0.75 * previous_height + 0.25 * current_player_height
+                                    # new_height = (0.5 + change_in_height_scaled) * previous_height + (0.5-change_in_height_scaled) * current_player_height
+                                    # ''' use scaling to calculate new box height. The greater the percentage change in height, the more i use the previous frame bbox height and vice versa 
+                                    #     0.5 + scaling is so that we always use slightly more of previous height (since its a sudden change which is more likely to be wrong than right)
+                                    # '''
+                                    # new_height = (player_bbox[4] + nearby_player_previous_frame[4])/2 #Average of current frame height and previous frame box height
+                                    original_coordinate_top = v - h/2 # Original top of box
+                                    new_v = original_coordinate_top + new_height/2 
+                                    '''Shift value of 'v' where top coordinate of box is equal to previously, 
+                                    but updated to new h (so that we shift the bbox downwards since 
+                                    mostly we detect the top half of ths body)
+                                    
+                                    Since we mostly detect from the head downwards, it makes sense to let the top coordinate of box be equal
+                                    since we mostly have sharp drops in height (but still from the head)
+                                    '''
+                                    boxes_k[player_bbox_index][2] = new_v
+                                    boxes_k[player_bbox_index][4] = new_height
+                                    # helper_player_tracking.print_box_uvwh(frame, boxes_k[player_bbox_index][1:5], (255, 255, 255), 5)
+
+                                if current_player_height > previous_height*1.3: # Larger than 1.4 of the average height
+                                    ''' Am a little stricter in height increase checks (1.4 vs 0.8) [0.4 vs 0.2 difference] due to the fact that increase in height 
+                                    can be both scenario (1) & (2) [see below]. Thus, make it catch only tougher cases (not sure if this is the best way though)
+                                    '''
+                                    u,v,w,h = player_bbox[1:5]
+                                    new_height = 0.75 * previous_height + 0.25 * current_player_height
+                                    # new_height = (0.5 + change_in_height_scaled) * previous_height + (0.5-change_in_height_scaled) * current_player_height
+                                    
+                                    # original_coordinate_bottom = v + h/2 # Original top of box
+                                    # new_v = original_coordinate_bottom - new_height/2 
+                                    ''' Only changing height here. This is because
+                                
+                                    For increase in height, it can be in both directions 
+                                    1. 1 player detected originally then another player comes on top of him and both are detected as 1 (increase in height upwards)
+                                    2. 1 player detected orignally but due to occlusion, only detect small part of him (from head). Subsequently, increase back to original size (increase in height downwards)
+
+                                    Thus, cannot set top/bottom of bbox. Havent thought of optimal solution yet
+                                    '''
+
+                                    # boxes_k[player_bbox_index][2] = new_v
+                                    boxes_k[player_bbox_index][4] = new_height
+                                    # helper_player_tracking.print_box_uvwh(frame, boxes_k[player_bbox_index][1:5], (0, 0, 0), 5)
+
+                frames_player_bbox_dict[k] = boxes_k
+                    # cv2.waitKey(0);
+                
 
                 # step 2, call predict for all act_tracks
                 for track in act_tracks:
@@ -415,11 +468,11 @@ def run_player_tracking_ss(match_details, to_save):
 
                 cv2.imshow('frame', frame)
                 cv2.imshow('std_img', std_img_copy)
-                # if k < 67:
+                # if k < 130:
                 #     cv2.waitKey(10)
                 # else:
                 #     cv2.waitKey(0)
-                cv2.waitKey(1)
+                # cv2.waitKey(0)
                 print(t)
                 t += PER_FRAME
 
