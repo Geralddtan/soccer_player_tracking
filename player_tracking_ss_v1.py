@@ -22,8 +22,9 @@ def run_player_tracking_ss(match_details, to_save):
         DT_THRESHOLD = 0.7
         COLOR_THRESHOLD = 0.6 # 0.2 # 0.6
         MAX_P = 1000
-        TEAM_OPTIONS = [0,1,2,3,4] # [0,1,2,3,4]
-        OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/%s/data/m-%03d.txt" % (CSV_FILES, MATCH_ID)
+        TEAM_OPTIONS = [0,1,2,3,4]
+        OUT_CSV_FOLDER = "tuning/full_image_color_hist_michael_hellinger_michael_npz_edit_box_height.txt"
+        OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/%s/data/m-%03d.txt" % (OUT_CSV_FOLDER, MATCH_ID)
         ID0 = 1
         for team in TEAM_OPTIONS:
             TEAM = team # 0=team1, 1=team1_keeper, 2=team2, 3=team2_keeper, 4=referee
@@ -102,9 +103,9 @@ def run_player_tracking_ss(match_details, to_save):
             player_boxes = pd.read_csv(DT_CSV).to_numpy()
             player_boxes = player_boxes[(player_boxes[:, 5] > DT_THRESHOLD)]  # Detectron confidence
             player_boxes = player_boxes[(np.min(player_boxes[:, 6:11], axis=1) < COLOR_THRESHOLD)]
-            player_boxes = player_boxes[(np.argmin(player_boxes[:, 6:11], axis=1) == TEAM)]
-            # Filtering out only those rows where most similar to TEAM (only analyse that team)
-            # [6:11] is the confidence score for team 1, t1 goalkeeper, t2, t2gk ,ref where lower is better (histogram similarity lower score better)
+            # player_boxes = player_boxes[(np.argmin(player_boxes[:, 6:11], axis=1) == TEAM)]
+            # # Filtering out only those rows where most similar to TEAM (only analyse that team)
+            # # [6:11] is the confidence score for team 1, t1 goalkeeper, t2, t2gk ,ref where lower is better (histogram similarity lower score better)
 
             player_boxes[:, 0] = np.round(
                 (player_boxes[:, 0] - START_MS) / PER_FRAME + 1)  # time_ms to k (Change time ms to frame counter)
@@ -114,6 +115,8 @@ def run_player_tracking_ss(match_details, to_save):
             player_boxes[:, 2] = player_boxes[:, 2] + player_boxes[:, 4] / 2  # y1 to v
             player_boxes[:, 7] = np.argmin(player_boxes[:, 6:11], axis=1)  # team
             player_boxes = player_boxes[:, 0:8]
+            player_boxes_all_classes = player_boxes #To get all players from all classes for box height comparison
+            player_boxes = player_boxes[(player_boxes[:, 7] == TEAM)]
 
             '''
             Final format for above is 
@@ -145,29 +148,7 @@ def run_player_tracking_ss(match_details, to_save):
                 [-court_width / 2, 11], [court_width / 2, 11], [-court_width / 2, court_length - 11],
                 [court_width / 2, court_length - 11]])
 
-
-            def get_standard_court(court_points, img_size=(896, 896, 3), sport='soccer', line_thickness=2):
-                if sport == 'soccer':
-                    img = np.zeros(img_size, dtype=np.uint8)
-                    points = np.round(
-                        court_points[:, ::-1] * 8 + [(img_size[1] - court_points[19, 1] * 8) / 2, img_size[0] / 2]).astype(np.int)
-                    cv2.circle(img, tuple(points[10]), 73, (255, 0, 0), line_thickness)
-                    img[:, 0:points[8, 0]] = 0
-                    cv2.circle(img, tuple(points[29]), 73, (255, 0, 0), line_thickness)
-                    img[:, points[27, 0]:] = 0
-                    cv2.rectangle(img, tuple(points[14]), tuple(points[34]), (255, 0, 0), line_thickness)
-                    cv2.rectangle(img, tuple(points[4]), tuple(points[7]), (255, 0, 0), line_thickness)
-                    cv2.rectangle(img, tuple(points[0]), tuple(points[3]), (255, 0, 0), line_thickness)
-                    cv2.rectangle(img, tuple(points[19]), tuple(points[22]), (255, 0, 0), line_thickness)
-                    cv2.rectangle(img, tuple(points[23]), tuple(points[26]), (255, 0, 0), line_thickness)
-                    cv2.line(img, tuple(points[16]), tuple(points[18]), (255, 0, 0), line_thickness)
-                    cv2.circle(img, tuple(points[17]), 73, (255, 0, 0), line_thickness)
-                    cv2.circle(img, tuple(points[10]), 3, (0, 0, 255), -1)
-                    cv2.circle(img, tuple(points[29]), 3, (0, 0, 255), -1)
-                    return img, court_points[:, ::-1] * 8 + [(img_size[1] - court_points[19, 1] * 8) / 2, img_size[0] / 2]
-
-
-            std_img, std_court_points = get_standard_court(court_points, line_thickness=1)
+            std_img, std_court_points = helper_player_tracking.get_standard_court(court_points, line_thickness=1)
             [cv2.circle(std_img, tuple(p), 1, (0, 0, 255), -1) for p in np.round(std_court_points).astype(int)]
             cv2.imshow('std_img', std_img)
 
@@ -180,6 +161,7 @@ def run_player_tracking_ss(match_details, to_save):
                 ret, frame = cap.read()
                 k = int(round((t - START_MS) / PER_FRAME)) + 1
                 boxes_k = player_boxes[player_boxes[:, 0] == k]  # Filtering predictions to only be from that specific frame
+                boxes_k_all_classes = player_boxes_all_classes[player_boxes_all_classes[:, 0] == k]  # Filtering predictions to only be from that specific frame
                 ''' boxes_k format = [frame counter, u,v,w,h,detectron2 score, team1_similarity_score, final team number]'''
                 if boxes_k.size > 0:
                     player_ub = np.concatenate([boxes_k[:, 1:2], boxes_k[:, 2:3] + boxes_k[:, 4:5] / 2],
@@ -188,6 +170,14 @@ def run_player_tracking_ss(match_details, to_save):
                     player_locs = cv2.perspectiveTransform((player_ub.reshape(-1, 2)).astype(np.float32)[np.newaxis], helper_player_tracking.get_H(t, MATCH_ID, court_gt, std_court_points))[0]
                     boxes_k[:, 5:7] = player_locs
                     ''' boxes_k format here = [frame counter, u,v,w,h, court x coordinate, court y coordinate, final team number]'''
+
+                if boxes_k_all_classes.size > 0: #Repeat of above for all classes (Dont really like this -- maybe can abstract this out)
+                    player_ub_all_classes = np.concatenate([boxes_k_all_classes[:, 1:2], boxes_k_all_classes[:, 2:3] + boxes_k_all_classes[:, 4:5] / 2],
+                                            axis=1)  # Player coordinate at middle top (using top of bbox as reference instead of bottom)
+                    ''' Converting player location into court coordinates '''
+                    player_locs_all_classes = cv2.perspectiveTransform((player_ub_all_classes.reshape(-1, 2)).astype(np.float32)[np.newaxis], helper_player_tracking.get_H(t, MATCH_ID, court_gt, std_court_points))[0]
+                    boxes_k_all_classes[:, 5:7] = player_locs_all_classes
+                    ''' boxes_k_all_classes format here = [frame counter, u,v,w,h, court x coordinate, court y coordinate, final team number]'''
 
                 if DEBUG:
                     rounded_box = np.round(
@@ -204,13 +194,49 @@ def run_player_tracking_ss(match_details, to_save):
                     rounded_loc]  # Printing player court position on court outline
 
                 # step 1, filter out persons outside the court
+                if boxes_k_all_classes.size > 0:
+                    '''Removing player based on court coordinates'''
+                    boxes_k_all_classes = boxes_k_all_classes[
+                        (boxes_k_all_classes[:, 5] >= 22.8) & (boxes_k_all_classes[:, 5] <= 873.2) & (boxes_k_all_classes[:, 6] >= 176) & (boxes_k_all_classes[:, 6] <= 720)]
+
+                cv2.imshow('frame', frame)
                 if boxes_k.size > 0:
                     '''Removing player based on court coordinates'''
                     boxes_k = boxes_k[
                         (boxes_k[:, 5] >= 22.8) & (boxes_k[:, 5] <= 873.2) & (boxes_k[:, 6] >= 176) & (boxes_k[:, 6] <= 720)]
                     # optionally, correct box height based on average box height for the nearby player in the k-1 step
-
+                    '''Get all players nearby each player by pixel values'''
                     print(boxes_k)
+                    for player_bbox_index in range(len(boxes_k)):
+                        player_bbox = boxes_k[player_bbox_index]
+                        player_distances = []  # one row per tracked locations, one col per detected locations
+                        for p in boxes_k_all_classes:
+                            player_distances.append(np.linalg.norm(player_bbox[1:3] - p[1:3])) #Euclidean distance using pixels
+                        nearby_player_candidate_index = [index for index in range(len(player_distances)) if (player_distances[index] < 200) & (player_distances[index] != 0)] #Get all those close by except itself
+                        '''Calculate average height'''
+                        avg_height = np.mean(boxes_k_all_classes[nearby_player_candidate_index][:, 4]) #Calculate average height of all nearby
+                        if player_bbox[4] < avg_height*0.8: #Smaller than 0.6 of the average height
+                            u,v,w,h = player_bbox[1:5]
+                            new_height = (avg_height + h)/2 # New height is average of original height and average height of those around
+                            original_coordinate_top = v - h/2 # Original top of box
+                            new_v = original_coordinate_top + new_height/2 
+                            '''Shift value of 'v' where top coordinate of box is equal to previously, 
+                            but updated to new h (so that we shift the bbox downwards since 
+                            mostly we detect the top half of ths body)'''
+                            boxes_k[player_bbox_index][2] = new_v
+                            # We only change v, not height, as we dont want an even increase in both up and down direction. This case we want increase in down direction
+
+                        if player_bbox[4] > avg_height*1.2: # Larger than 1.4 of the average height
+                            u,v,w,h = player_bbox[1:5]
+                            new_height = (avg_height + h)/2 # New height is average of original height and average height of those around
+                            original_coordinate_bottom = v + h/2 # Original top of box
+                            new_v = original_coordinate_bottom - new_height/2 
+                            '''Shift value of 'v' where top coordinate of box is equal to previously, 
+                            but updated to new h (so that we shift the bbox downwards since 
+                            mostly we detect the top half of ths body)'''
+                            boxes_k[player_bbox_index][2] = new_v
+                            # We only change v, not height, as we dont want an even decrease in both up and down direction. This case we want decrease in up direction
+
 
                 # step 2, call predict for all act_tracks
                 for track in act_tracks:
@@ -219,8 +245,7 @@ def run_player_tracking_ss(match_details, to_save):
 
                 # step 3,
                 if len(act_tracks) > 0:  # Refer to step 8.2 for similar explanation
-                    candidates = [track for track in act_tracks if np.max(
-                        track['box_kf'].P[0:4, 0:4]) < 200]  # If all uncertainty of u,v,w,h,du,dv is < 200, keep as candidate
+                    candidates = [track for track in act_tracks if np.max(track['box_kf'].P[0:4, 0:4]) < 200]  # If all uncertainty of u,v,w,h,du,dv is < 200, keep as candidate
                     non_candidates = [track for track in act_tracks if np.max(track['box_kf'].P[0:4, 0:4]) >= 200]
                     if len(candidates) > 0:
                         act_track_boxes = np.array([track['box_kf'].x[0:4] for track in candidates]).reshape(-1,
@@ -414,12 +439,12 @@ def run_player_tracking_ss(match_details, to_save):
 
                 cv2.imshow('frame', frame)
                 cv2.imshow('std_img', std_img_copy)
-                # if k < 67:
+                # if k < 135:
                 #     cv2.waitKey(10)
                 # else:
                 #     cv2.waitKey(0)
-                cv2.waitKey(1)
-                print(t)
+                # cv2.waitKey(1)
+                print(k)
                 t += PER_FRAME
 
             # step 9, smoothing
@@ -454,8 +479,7 @@ def run_player_tracking_ss(match_details, to_save):
                 height, width = frame.shape[0:2]
                 k = int(round((t - START_MS) / PER_FRAME)) + 1
                 for track_i in range(len(act_tracks)):
-                    k0 = int(act_tracks[track_i]['zs'][0][
-                                0])  # Extracts each actual track and then does some computation to draw them out
+                    k0 = int(act_tracks[track_i]['zs'][0][0])  # Extracts each actual track and then does some computation to draw them out
                     k_i = k - k0
                     if k >= k0 and k_i < act_tracks[track_i]['smo_box_xs'].shape[0]:
                         box = act_tracks[track_i]['smo_box_xs'][k_i, 0:4]
