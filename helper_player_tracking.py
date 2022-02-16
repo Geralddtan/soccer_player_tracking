@@ -116,3 +116,15 @@ def get_standard_court(court_points, img_size=(896, 896, 3), sport='soccer', lin
         cv2.circle(img, tuple(points[10]), 3, (0, 0, 255), -1)
         cv2.circle(img, tuple(points[29]), 3, (0, 0, 255), -1)
         return img, court_points[:, ::-1] * 8 + [(img_size[1] - court_points[19, 1] * 8) / 2, img_size[0] / 2]
+
+def print_box_uvwh(frame, uvwh, color, thickness):
+    u = uvwh[0]
+    v = uvwh[1]
+    w = uvwh[2]
+    h = uvwh[3]
+    x1 = int(u - w/2)
+    x2 = int(u + w/2)
+    y1 = int(v - h/2)
+    y2 = int(v + h/2)
+    ''' Draw rectangle of new bbox '''
+    return cv2.rectangle(frame, tuple((x1, y1)), tuple((x2, y2)), color, thickness)

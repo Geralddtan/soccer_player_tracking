@@ -19,11 +19,11 @@ def run_player_tracking_ss(match_details, to_save):
         PER_FRAME = 1000 / FPS
         CSV_FILES = "full_image_color_hist_michael_hellinger_michael_npz" #"halved_image_color_hist_optimised_intersect_michael_npz" #halved_image_color_hist_optimised_intersect" # "full_image_color_hist_michael_hellinger" # "full_image_color_hist_michael_intersect" # "halved_image_color_hist_michael_intersect" # "halved_image_color_hist_optimised_intersect"
         DT_CSV = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/ALL_CSV/%s/player_detection_colorhist/m-%03d-player-dt25-team-%d-%d.csv' % (CSV_FILES,MATCH_ID, START_MS, END_MS)
-        DT_THRESHOLD = 0.7
+        DT_THRESHOLD = 0.6
         COLOR_THRESHOLD = 0.6 # 0.2 # 0.6
         MAX_P = 1000
         TEAM_OPTIONS = [0,1,2,3,4]
-        OUT_CSV_FOLDER = "tuning/full_image_color_hist_michael_hellinger_michael_npz_edit_box_height.txt"
+        OUT_CSV_FOLDER = "tuning/full_image_color_hist_michael_hellinger_michael_npz_edit_box_height_surrounding_players_0.6_detectron_threshold"
         OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/%s/data/m-%03d.txt" % (OUT_CSV_FOLDER, MATCH_ID)
         ID0 = 1
         for team in TEAM_OPTIONS:
@@ -190,8 +190,7 @@ def run_player_tracking_ss(match_details, to_save):
                     '''Printing blue color as detectron predictions'''
                     [cv2.rectangle(frame, tuple(box[0:2]), tuple(box[2:4]), (255, 0, 0), 1) for box in rounded_box]
                     std_img_copy = std_img.copy()  # Court visualisation
-                    [cv2.circle(std_img_copy, tuple(c), 5, (255, 0, 0), 1) for c in
-                    rounded_loc]  # Printing player court position on court outline
+                    [cv2.circle(std_img_copy, tuple(c), 5, (255, 0, 0), 1) for c in rounded_loc]  # Printing player court position on court outline
 
                 # step 1, filter out persons outside the court
                 if boxes_k_all_classes.size > 0:
@@ -225,31 +224,24 @@ def run_player_tracking_ss(match_details, to_save):
                             mostly we detect the top half of ths body)'''
                             boxes_k[player_bbox_index][2] = new_v
                             boxes_k[player_bbox_index][4] = new_height
-                            u,v,w,h = boxes_k[player_bbox_index][1:5]
-                            x1 = int(u - w/2)
-                            x2 = int(u + w/2)
-                            y1 = int(v - h/2)
-                            y2 = int(v + h/2)
-                            ''' Draw rectangle of new bbox '''
-                            cv2.rectangle(frame, tuple((x1, y1)), tuple((x2, y2)), (255, 255, 255), 5)
+                            helper_player_tracking.print_box_uvwh(frame, boxes_k[player_bbox_index][1:5], (255, 255, 255), 5)
 
                         if player_bbox[4] > avg_height*1.6: # Larger than 1.4 of the average height
                             u,v,w,h = player_bbox[1:5]
                             new_height = (avg_height + h)/2 # New height is average of original height and average height of those around
-                            original_coordinate_bottom = v + h/2 # Original top of box
-                            new_v = original_coordinate_bottom - new_height/2 
-                            '''Shift value of 'v' where bottom coordinate of box is equal to previously, 
-                            but updated to new h (so that we shift the bbox downwards since 
-                            mostly we detect the top half of ths body)'''
-                            boxes_k[player_bbox_index][2] = new_v
+                            # original_coordinate_bottom = v + h/2 # Original top of box
+                            # new_v = original_coordinate_bottom - new_height/2 
+                            # boxes_k[player_bbox_index][2] = new_v
                             boxes_k[player_bbox_index][4] = new_height
-                            u,v,w,h = boxes_k[player_bbox_index][1:5]
-                            x1 = int(u - w/2)
-                            x2 = int(u + w/2)
-                            y1 = int(v - h/2)
-                            y2 = int(v + h/2)
-                            ''' Draw rectangle of new bbox '''
-                            cv2.rectangle(frame, tuple((x1, y1)), tuple((x2, y2)), (0, 0, 0), 5)
+                            ''' Only changing height here. This is because
+                                For increase in height, it can be in both directions 
+                                1. 1 player detected originally then another player comes on top of him and both are detected as 1 (increase in height upwards)
+                                2. 1 player detected orignally but due to occlusion, only detect small part of him (from head). Subsequently, increase back to original size (increase in height downwards)
+
+                                Thus, cannot set top/bottom of bbox strictly. Havent thought of optimal solution yet
+                            '''
+                            helper_player_tracking.print_box_uvwh(frame, boxes_k[player_bbox_index][1:5], (0, 0, 0), 5)
+
                 # step 2, call predict for all act_tracks
                 for track in act_tracks:
                     track['box_kf'].predict()  # Image pixels
@@ -455,7 +447,7 @@ def run_player_tracking_ss(match_details, to_save):
                 #     cv2.waitKey(10)
                 # else:
                 #     cv2.waitKey(0)
-                cv2.waitKey(0)
+                # cv2.waitKey(0)
                 print(k)
                 t += PER_FRAME
 
