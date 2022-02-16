@@ -215,7 +215,7 @@ def run_player_tracking_ss(match_details, to_save):
                         nearby_player_candidate_index = [index for index in range(len(player_distances)) if (player_distances[index] < 200) & (player_distances[index] != 0)] #Get all those close by except itself
                         '''Calculate average height'''
                         avg_height = np.mean(boxes_k_all_classes[nearby_player_candidate_index][:, 4]) #Calculate average height of all nearby
-                        if player_bbox[4] < avg_height*0.8: #Smaller than 0.6 of the average height
+                        if player_bbox[4] < avg_height*0.4: #Smaller than 0.6 of the average height
                             u,v,w,h = player_bbox[1:5]
                             new_height = (avg_height + h)/2 # New height is average of original height and average height of those around
                             original_coordinate_top = v - h/2 # Original top of box
@@ -224,20 +224,32 @@ def run_player_tracking_ss(match_details, to_save):
                             but updated to new h (so that we shift the bbox downwards since 
                             mostly we detect the top half of ths body)'''
                             boxes_k[player_bbox_index][2] = new_v
-                            # We only change v, not height, as we dont want an even increase in both up and down direction. This case we want increase in down direction
+                            boxes_k[player_bbox_index][4] = new_height
+                            u,v,w,h = boxes_k[player_bbox_index][1:5]
+                            x1 = int(u - w/2)
+                            x2 = int(u + w/2)
+                            y1 = int(v - h/2)
+                            y2 = int(v + h/2)
+                            ''' Draw rectangle of new bbox '''
+                            cv2.rectangle(frame, tuple((x1, y1)), tuple((x2, y2)), (255, 255, 255), 5)
 
-                        if player_bbox[4] > avg_height*1.2: # Larger than 1.4 of the average height
+                        if player_bbox[4] > avg_height*1.6: # Larger than 1.4 of the average height
                             u,v,w,h = player_bbox[1:5]
                             new_height = (avg_height + h)/2 # New height is average of original height and average height of those around
                             original_coordinate_bottom = v + h/2 # Original top of box
                             new_v = original_coordinate_bottom - new_height/2 
-                            '''Shift value of 'v' where top coordinate of box is equal to previously, 
+                            '''Shift value of 'v' where bottom coordinate of box is equal to previously, 
                             but updated to new h (so that we shift the bbox downwards since 
                             mostly we detect the top half of ths body)'''
                             boxes_k[player_bbox_index][2] = new_v
-                            # We only change v, not height, as we dont want an even decrease in both up and down direction. This case we want decrease in up direction
-
-
+                            boxes_k[player_bbox_index][4] = new_height
+                            u,v,w,h = boxes_k[player_bbox_index][1:5]
+                            x1 = int(u - w/2)
+                            x2 = int(u + w/2)
+                            y1 = int(v - h/2)
+                            y2 = int(v + h/2)
+                            ''' Draw rectangle of new bbox '''
+                            cv2.rectangle(frame, tuple((x1, y1)), tuple((x2, y2)), (0, 0, 0), 5)
                 # step 2, call predict for all act_tracks
                 for track in act_tracks:
                     track['box_kf'].predict()  # Image pixels
@@ -443,7 +455,7 @@ def run_player_tracking_ss(match_details, to_save):
                 #     cv2.waitKey(10)
                 # else:
                 #     cv2.waitKey(0)
-                # cv2.waitKey(1)
+                cv2.waitKey(0)
                 print(k)
                 t += PER_FRAME
 
