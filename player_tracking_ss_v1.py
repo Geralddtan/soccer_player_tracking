@@ -19,11 +19,12 @@ def run_player_tracking_ss(match_details, to_save):
         PER_FRAME = 1000 / FPS
         CSV_FILES = "full_image_color_hist_michael_hellinger_michael_npz" #"halved_image_color_hist_optimised_intersect_michael_npz" #halved_image_color_hist_optimised_intersect" # "full_image_color_hist_michael_hellinger" # "full_image_color_hist_michael_intersect" # "halved_image_color_hist_michael_intersect" # "halved_image_color_hist_optimised_intersect"
         DT_CSV = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/ALL_CSV/%s/player_detection_colorhist/m-%03d-player-dt25-team-%d-%d.csv' % (CSV_FILES,MATCH_ID, START_MS, END_MS)
-        DT_THRESHOLD = 0.7
+        DT_THRESHOLD = 0.6
         COLOR_THRESHOLD = 0.6 # 0.2 # 0.6
         MAX_P = 1000
         TEAM_OPTIONS = [0,1,2,3,4] # [0,1,2,3,4]
-        OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/%s/data/m-%03d.txt" % (CSV_FILES, MATCH_ID)
+        OUT_CSV_FOLDER = "tuning/full_image_color_hist_michael_hellinger_michael_npz_0.8_detectron_threshold"
+        OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/%s/data/m-%03d.txt" % (OUT_CSV_FOLDER, MATCH_ID)
         ID0 = 1
         for team in TEAM_OPTIONS:
             TEAM = team # 0=team1, 1=team1_keeper, 2=team2, 3=team2_keeper, 4=referee
