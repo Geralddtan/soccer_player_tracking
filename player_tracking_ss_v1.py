@@ -23,7 +23,7 @@ def run_player_tracking_ss(match_details, to_save):
         COLOR_THRESHOLD = 0.6 # 0.2 # 0.6
         MAX_P = 1000
         TEAM_OPTIONS = [0,1,2,3,4]
-        OUT_CSV_FOLDER = "tuning/full_image_color_hist_michael_hellinger_michael_npz_edit_box_height_surrounding_players_0.6_detectron_threshold_process_uncertainty_high"
+        OUT_CSV_FOLDER = "tuning/full_image_color_hist_michael_hellinger_michael_npz_edit_box_height_surrounding_players_0.6_detectron_threshold_process_uncertainty_high_medium_measurement_uncertainty_uv"
         OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/%s/data/m-%03d.txt" % (OUT_CSV_FOLDER, MATCH_ID)
         ID0 = 1
         for team in TEAM_OPTIONS:
@@ -77,7 +77,7 @@ def run_player_tracking_ss(match_details, to_save):
 
             '''
             box_kf.R = np.diag(
-                [81., 81., 100., 400.])  # Uncertainty for measurement.  Higher uncertainty is put on w, h at the moment.
+                [40., 40., 100., 400.])  # Uncertainty for measurement.  Higher uncertainty is put on w, h at the moment.
             '''
             R is the measurement covariance matrix. Can think of it as the uncertainty/variance in the measurement gaussian.
             If you believe detectron predictions are good/bad, then can change uncertainty respectively. 
@@ -91,15 +91,16 @@ def run_player_tracking_ss(match_details, to_save):
             # box_kf.R = measurement uncertainty/noise (Detectron2 measurement uncertainty)
 
             BOX_KF_INIT_P = np.diag(
-                [81., 81., 81., 81., 100., 400.])  # Initial covariance of state. Higher uncertainty is put on du, dv at the moment.
+                [40., 40., 81., 81., 100., 400.])  # Initial covariance of state. Higher uncertainty is put on du, dv at the moment.
 
             '''
             What is the difference between box_kf.Q & BOX_KF_INIT_P?
 
-            box_kf.Q is the process uncertainty assigned to u,v,w,h,du,dv when used in the calculations of predict step.
+            box_kf.Q is the process uncertainty assigned to u,v,w,h,du,dv when used in the calculations of predict step. It is kinda the uncertainty
+            attacked to .F matrix!
             box_kf.R is the measurement uncertainty assigned to each new measurement used in the calculation of update step
             BOX_KF_INIT_P is the initial uncertainty assigned to each new track. This is the .P matrix which is the uncertainty
-            of the track itself. If im not wrong, the .P & .Q matrix are multiplied tgt in the predict step/ 
+            of the track itself. If im not wrong, the .P & .Q matrix are used tgt in the predict step
             '''
 
             loc_kf = KalmanFilter(4,
@@ -487,7 +488,7 @@ def run_player_tracking_ss(match_details, to_save):
                 #     cv2.waitKey(10)
                 # else:
                 #     cv2.waitKey(0)
-                # cv2.waitKey(0)
+                cv2.waitKey(1)
                 print(k)
                 t += PER_FRAME
 
@@ -570,7 +571,7 @@ def run_player_tracking_ss(match_details, to_save):
                             print('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1' % (
                                 k, track_i + len(act_tracks) + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
                 cv2.imshow('frame', frame)
-                cv2.waitKey(0)
+                cv2.waitKey(1)
                 t += PER_FRAME
             
             ID0 += len(act_tracks)
