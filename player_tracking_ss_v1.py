@@ -38,22 +38,53 @@ def run_player_tracking_ss(match_details, to_save):
             Measurement is the detectron2 measurement of bbox (and its uncertainty)
             '''
 
-            box_kf.F = np.array([[1., 0., 0., 0., 1., 0.],
+            box_kf.F = np.array([[1., 0., 0., 0., 1., 0.], 
                                 [0., 1., 0., 0., 0., 1.],
                                 [0., 0., 1., 0., 0., 0.],
                                 [0., 0., 0., 1., 0., 0.],
                                 [0., 0., 0., 0., 1., 0.],
                                 [0., 0., 0., 0., 0., 1.]])
+            '''
+            This is the state transition matrix used in prior calculation in the predict step. As you can see
+            apart from the diagonals which mean u,v,w,h,du,dv is the same across iterations, we have [1] for the 1st and 2nd row
+            corresponding to the du,dv values. This means that in each iteration, u1 = u0 + du & v1 = v0 + dv
+            Q is the associated covariance for F. 
+            '''
+
             box_kf.H = np.array([[1., 0., 0., 0., 0., 0.],
                                 [0., 1., 0., 0., 0., 0.],
                                 [0., 0., 1., 0., 0., 0.],
                                 [0., 0., 0., 1., 0., 0.]])
+            '''
+            H is the measurement function (or matrix) to convert state (u,v,w,h,du,dv) [from prior in predict step] into measurement format (u,v,w,h) since
+            our detectron measurements are in (u,v,w,h). This conversion is so that we can calculate residual between
+            prior and measurement in the (u,v,w,h) form.
+            As can be seen, we only need diagonals for u,v,w,h and [0] for du,dv.
+            '''
+
             # box_kf.Q = np.diag(
             #     [0., 0., 0.25, 0.25, 1.5, 1.5])  # Uncertainty for state.  Higher uncertainty is put on du, dv at the moment.
             box_kf.Q = np.diag(
-                [0., 0., 0.25, 0.25, 3.0, 3.0])  # Uncertainty for state.  Higher uncertainty is put on du, dv at the moment.
+                [0., 0., 0.25, 0.25, 3.0, 3.0])
+            '''
+            Uncertainty for state transition. We make use of state transition in the predict step when calculating 
+            prior for next iteration. Statet = statet-1 * F + Q.
+            This represents uncertainty in the calculations of prior in the predict step. If you think the model at which we use
+            to predict the next step (prior prediction in predict step), then can increase uncertainty of u,v,w,h,du,dv depending on which
+            you want to change the uncertainty for.
+            
+            Higher uncertainty is put on du, dv at the moment.
+
+            '''
             box_kf.R = np.diag(
                 [81., 81., 100., 400.])  # Uncertainty for measurement.  Higher uncertainty is put on w, h at the moment.
+            '''
+            R is the measurement covariance matrix. Can think of it as the uncertainty/variance in the measurement gaussian.
+            If you believe detectron predictions are good/bad, then can change uncertainty respectively. 
+            Is there any way to change R based on detecttron confidence?
+
+            '''
+
             # box_kf.F = state transition matrix
             # box_kf.H = measurement function
             # box_kf.Q = Process uncertainty/noise (State uncertainty)
@@ -64,6 +95,11 @@ def run_player_tracking_ss(match_details, to_save):
 
             '''
             What is the difference between box_kf.Q & BOX_KF_INIT_P?
+
+            box_kf.Q is the process uncertainty assigned to u,v,w,h,du,dv when used in the calculations of predict step.
+            box_kf.R is the measurement uncertainty assigned to each new measurement used in the calculation of update step
+            BOX_KF_INIT_P is the initial uncertainty assigned to each new track. This is the .P matrix which is the uncertainty
+            of the track itself. If im not wrong, the .P & .Q matrix are multiplied tgt in the predict step/ 
             '''
 
             loc_kf = KalmanFilter(4,
@@ -401,6 +437,7 @@ def run_player_tracking_ss(match_details, to_save):
                 for box in boxes_k3:
                     new_box_kf = deepcopy(box_kf)  # New pixel coordinate kalman filter per bbox (new boxes)
                     new_box_kf.x = np.concatenate([box[1:5], np.array([0., 0.])])  # concatenating state estimate u,v,w,h,du,dv
+                    '''We initialise each new box with box coordinate with 0 velocity du, dv'''
                     new_box_kf.P = BOX_KF_INIT_P  # Initial covariance of pixel coordinate state (u,v,w,h,du,dv). Higher uncertainty is put on du, dv at the moment.
                     new_loc_kf = deepcopy(loc_kf)  # New court location kalman filter
                     new_loc_kf.x = np.concatenate([box[5:7], np.array([0., 0.])])  # concatenating x,y,dx,dy court coordinate
