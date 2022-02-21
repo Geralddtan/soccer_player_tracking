@@ -96,3 +96,35 @@ def assign_by_euclidean(locs_dt, locs_track, gating=50.0):
         if distance_matrix[row_ind[i], col_ind[i]] <= gating:
             to_keep.append(i)
     return row_ind[to_keep], col_ind[to_keep], distance_matrix
+
+def get_standard_court(court_points, img_size=(896, 896, 3), sport='soccer', line_thickness=2):
+    if sport == 'soccer':
+        img = np.zeros(img_size, dtype=np.uint8)
+        points = np.round(
+            court_points[:, ::-1] * 8 + [(img_size[1] - court_points[19, 1] * 8) / 2, img_size[0] / 2]).astype(np.int)
+        cv2.circle(img, tuple(points[10]), 73, (255, 0, 0), line_thickness)
+        img[:, 0:points[8, 0]] = 0
+        cv2.circle(img, tuple(points[29]), 73, (255, 0, 0), line_thickness)
+        img[:, points[27, 0]:] = 0
+        cv2.rectangle(img, tuple(points[14]), tuple(points[34]), (255, 0, 0), line_thickness)
+        cv2.rectangle(img, tuple(points[4]), tuple(points[7]), (255, 0, 0), line_thickness)
+        cv2.rectangle(img, tuple(points[0]), tuple(points[3]), (255, 0, 0), line_thickness)
+        cv2.rectangle(img, tuple(points[19]), tuple(points[22]), (255, 0, 0), line_thickness)
+        cv2.rectangle(img, tuple(points[23]), tuple(points[26]), (255, 0, 0), line_thickness)
+        cv2.line(img, tuple(points[16]), tuple(points[18]), (255, 0, 0), line_thickness)
+        cv2.circle(img, tuple(points[17]), 73, (255, 0, 0), line_thickness)
+        cv2.circle(img, tuple(points[10]), 3, (0, 0, 255), -1)
+        cv2.circle(img, tuple(points[29]), 3, (0, 0, 255), -1)
+        return img, court_points[:, ::-1] * 8 + [(img_size[1] - court_points[19, 1] * 8) / 2, img_size[0] / 2]
+
+def print_box_uvwh(frame, uvwh, color, thickness):
+    u = uvwh[0]
+    v = uvwh[1]
+    w = uvwh[2]
+    h = uvwh[3]
+    x1 = int(u - w/2)
+    x2 = int(u + w/2)
+    y1 = int(v - h/2)
+    y2 = int(v + h/2)
+    ''' Draw rectangle of new bbox '''
+    return cv2.rectangle(frame, tuple((x1, y1)), tuple((x2, y2)), color, thickness)

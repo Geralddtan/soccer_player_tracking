@@ -22,8 +22,8 @@ def run_player_tracking_ss(match_details, to_save):
         DT_THRESHOLD = 0.6
         COLOR_THRESHOLD = 0.6 # 0.2 # 0.6
         MAX_P = 1000
-        TEAM_OPTIONS = [0,1,2,3,4] # [0,1,2,3,4]
-        OUT_CSV_FOLDER = "tuning/full_image_color_hist_michael_hellinger_michael_npz_0.8_detectron_threshold"
+        TEAM_OPTIONS = [0,1,2,3,4]
+        OUT_CSV_FOLDER = "tuning/full_image_color_hist_michael_hellinger_michael_npz_edit_box_height_surrounding_players_0.6_detectron_threshold_process_uncertainty_high_medium_measurement_uncertainty_uv"
         OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/%s/data/m-%03d.txt" % (OUT_CSV_FOLDER, MATCH_ID)
         ID0 = 1
         for team in TEAM_OPTIONS:
@@ -38,30 +38,69 @@ def run_player_tracking_ss(match_details, to_save):
             Measurement is the detectron2 measurement of bbox (and its uncertainty)
             '''
 
-            box_kf.F = np.array([[1., 0., 0., 0., 1., 0.],
+            box_kf.F = np.array([[1., 0., 0., 0., 1., 0.], 
                                 [0., 1., 0., 0., 0., 1.],
                                 [0., 0., 1., 0., 0., 0.],
                                 [0., 0., 0., 1., 0., 0.],
                                 [0., 0., 0., 0., 1., 0.],
                                 [0., 0., 0., 0., 0., 1.]])
+            '''
+            This is the state transition matrix used in prior calculation in the predict step. As you can see
+            apart from the diagonals which mean u,v,w,h,du,dv is the same across iterations, we have [1] for the 1st and 2nd row
+            corresponding to the du,dv values. This means that in each iteration, u1 = u0 + du & v1 = v0 + dv
+            Q is the associated covariance for F. 
+            '''
+
             box_kf.H = np.array([[1., 0., 0., 0., 0., 0.],
                                 [0., 1., 0., 0., 0., 0.],
                                 [0., 0., 1., 0., 0., 0.],
                                 [0., 0., 0., 1., 0., 0.]])
+            '''
+            H is the measurement function (or matrix) to convert state (u,v,w,h,du,dv) [from prior in predict step] into measurement format (u,v,w,h) since
+            our detectron measurements are in (u,v,w,h). This conversion is so that we can calculate residual between
+            prior and measurement in the (u,v,w,h) form.
+            As can be seen, we only need diagonals for u,v,w,h and [0] for du,dv.
+            '''
+
+            # box_kf.Q = np.diag(
+            #     [0., 0., 0.25, 0.25, 1.5, 1.5])  # Uncertainty for state.  Higher uncertainty is put on du, dv at the moment.
             box_kf.Q = np.diag(
-                [0., 0., 0.25, 0.25, 1.5, 1.5])  # Uncertainty for state.  Higher uncertainty is put on du, dv at the moment.
+                [0., 0., 0.25, 0.25, 3.0, 3.0])
+            '''
+            Uncertainty for state transition. We make use of state transition in the predict step when calculating 
+            prior for next iteration. Statet = statet-1 * F + Q.
+            This represents uncertainty in the calculations of prior in the predict step. If you think the model at which we use
+            to predict the next step (prior prediction in predict step), then can increase uncertainty of u,v,w,h,du,dv depending on which
+            you want to change the uncertainty for.
+            
+            Higher uncertainty is put on du, dv at the moment.
+
+            '''
             box_kf.R = np.diag(
-                [81., 81., 100., 400.])  # Uncertainty for measurement.  Higher uncertainty is put on w, h at the moment.
+                [40., 40., 100., 400.])  # Uncertainty for measurement.  Higher uncertainty is put on w, h at the moment.
+            '''
+            R is the measurement covariance matrix. Can think of it as the uncertainty/variance in the measurement gaussian.
+            If you believe detectron predictions are good/bad, then can change uncertainty respectively. 
+            Is there any way to change R based on detecttron confidence?
+
+            '''
+
             # box_kf.F = state transition matrix
             # box_kf.H = measurement function
             # box_kf.Q = Process uncertainty/noise (State uncertainty)
             # box_kf.R = measurement uncertainty/noise (Detectron2 measurement uncertainty)
 
             BOX_KF_INIT_P = np.diag(
-                [81., 81., 81., 81., 100., 400.])  # Initial covariance of state. Higher uncertainty is put on du, dv at the moment.
+                [40., 40., 81., 81., 100., 400.])  # Initial covariance of state. Higher uncertainty is put on du, dv at the moment.
 
             '''
             What is the difference between box_kf.Q & BOX_KF_INIT_P?
+
+            box_kf.Q is the process uncertainty assigned to u,v,w,h,du,dv when used in the calculations of predict step. It is kinda the uncertainty
+            attacked to .F matrix!
+            box_kf.R is the measurement uncertainty assigned to each new measurement used in the calculation of update step
+            BOX_KF_INIT_P is the initial uncertainty assigned to each new track. This is the .P matrix which is the uncertainty
+            of the track itself. If im not wrong, the .P & .Q matrix are used tgt in the predict step
             '''
 
             loc_kf = KalmanFilter(4,
@@ -72,7 +111,8 @@ def run_player_tracking_ss(match_details, to_save):
                                 [0., 0., 0., 1.]])
             loc_kf.H = np.array([[1., 0., 0., 0.],
                                 [0., 1., 0., 0.]])
-            loc_kf.Q = np.diag([0., 0., 0.5, 0.5])  #
+            # loc_kf.Q = np.diag([0., 0., 0.5, 0.5]) 
+            loc_kf.Q = np.diag([0., 0., 1.0, 1.0])  #
             loc_kf.R = np.diag([2000., 2000.])
             LOC_KF_INIT_P = np.diag([2000., 2000., 2000., 2000.])  # Equal uncertainty for x,y,dx,dy
 
@@ -103,9 +143,9 @@ def run_player_tracking_ss(match_details, to_save):
             player_boxes = pd.read_csv(DT_CSV).to_numpy()
             player_boxes = player_boxes[(player_boxes[:, 5] > DT_THRESHOLD)]  # Detectron confidence
             player_boxes = player_boxes[(np.min(player_boxes[:, 6:11], axis=1) < COLOR_THRESHOLD)]
-            player_boxes = player_boxes[(np.argmin(player_boxes[:, 6:11], axis=1) == TEAM)]
-            # Filtering out only those rows where most similar to TEAM (only analyse that team)
-            # [6:11] is the confidence score for team 1, t1 goalkeeper, t2, t2gk ,ref where lower is better (histogram similarity lower score better)
+            # player_boxes = player_boxes[(np.argmin(player_boxes[:, 6:11], axis=1) == TEAM)]
+            # # Filtering out only those rows where most similar to TEAM (only analyse that team)
+            # # [6:11] is the confidence score for team 1, t1 goalkeeper, t2, t2gk ,ref where lower is better (histogram similarity lower score better)
 
             player_boxes[:, 0] = np.round(
                 (player_boxes[:, 0] - START_MS) / PER_FRAME + 1)  # time_ms to k (Change time ms to frame counter)
@@ -115,6 +155,8 @@ def run_player_tracking_ss(match_details, to_save):
             player_boxes[:, 2] = player_boxes[:, 2] + player_boxes[:, 4] / 2  # y1 to v
             player_boxes[:, 7] = np.argmin(player_boxes[:, 6:11], axis=1)  # team
             player_boxes = player_boxes[:, 0:8]
+            player_boxes_all_classes = player_boxes #To get all players from all classes for box height comparison
+            player_boxes = player_boxes[(player_boxes[:, 7] == TEAM)]
 
             '''
             Final format for above is 
@@ -146,29 +188,7 @@ def run_player_tracking_ss(match_details, to_save):
                 [-court_width / 2, 11], [court_width / 2, 11], [-court_width / 2, court_length - 11],
                 [court_width / 2, court_length - 11]])
 
-
-            def get_standard_court(court_points, img_size=(896, 896, 3), sport='soccer', line_thickness=2):
-                if sport == 'soccer':
-                    img = np.zeros(img_size, dtype=np.uint8)
-                    points = np.round(
-                        court_points[:, ::-1] * 8 + [(img_size[1] - court_points[19, 1] * 8) / 2, img_size[0] / 2]).astype(np.int)
-                    cv2.circle(img, tuple(points[10]), 73, (255, 0, 0), line_thickness)
-                    img[:, 0:points[8, 0]] = 0
-                    cv2.circle(img, tuple(points[29]), 73, (255, 0, 0), line_thickness)
-                    img[:, points[27, 0]:] = 0
-                    cv2.rectangle(img, tuple(points[14]), tuple(points[34]), (255, 0, 0), line_thickness)
-                    cv2.rectangle(img, tuple(points[4]), tuple(points[7]), (255, 0, 0), line_thickness)
-                    cv2.rectangle(img, tuple(points[0]), tuple(points[3]), (255, 0, 0), line_thickness)
-                    cv2.rectangle(img, tuple(points[19]), tuple(points[22]), (255, 0, 0), line_thickness)
-                    cv2.rectangle(img, tuple(points[23]), tuple(points[26]), (255, 0, 0), line_thickness)
-                    cv2.line(img, tuple(points[16]), tuple(points[18]), (255, 0, 0), line_thickness)
-                    cv2.circle(img, tuple(points[17]), 73, (255, 0, 0), line_thickness)
-                    cv2.circle(img, tuple(points[10]), 3, (0, 0, 255), -1)
-                    cv2.circle(img, tuple(points[29]), 3, (0, 0, 255), -1)
-                    return img, court_points[:, ::-1] * 8 + [(img_size[1] - court_points[19, 1] * 8) / 2, img_size[0] / 2]
-
-
-            std_img, std_court_points = get_standard_court(court_points, line_thickness=1)
+            std_img, std_court_points = helper_player_tracking.get_standard_court(court_points, line_thickness=1)
             [cv2.circle(std_img, tuple(p), 1, (0, 0, 255), -1) for p in np.round(std_court_points).astype(int)]
             cv2.imshow('std_img', std_img)
 
@@ -181,6 +201,7 @@ def run_player_tracking_ss(match_details, to_save):
                 ret, frame = cap.read()
                 k = int(round((t - START_MS) / PER_FRAME)) + 1
                 boxes_k = player_boxes[player_boxes[:, 0] == k]  # Filtering predictions to only be from that specific frame
+                boxes_k_all_classes = player_boxes_all_classes[player_boxes_all_classes[:, 0] == k]  # Filtering predictions to only be from that specific frame
                 ''' boxes_k format = [frame counter, u,v,w,h,detectron2 score, team1_similarity_score, final team number]'''
                 if boxes_k.size > 0:
                     player_ub = np.concatenate([boxes_k[:, 1:2], boxes_k[:, 2:3] + boxes_k[:, 4:5] / 2],
@@ -189,6 +210,14 @@ def run_player_tracking_ss(match_details, to_save):
                     player_locs = cv2.perspectiveTransform((player_ub.reshape(-1, 2)).astype(np.float32)[np.newaxis], helper_player_tracking.get_H(t, MATCH_ID, court_gt, std_court_points))[0]
                     boxes_k[:, 5:7] = player_locs
                     ''' boxes_k format here = [frame counter, u,v,w,h, court x coordinate, court y coordinate, final team number]'''
+
+                if boxes_k_all_classes.size > 0: #Repeat of above for all classes (Dont really like this -- maybe can abstract this out)
+                    player_ub_all_classes = np.concatenate([boxes_k_all_classes[:, 1:2], boxes_k_all_classes[:, 2:3] + boxes_k_all_classes[:, 4:5] / 2],
+                                            axis=1)  # Player coordinate at middle top (using top of bbox as reference instead of bottom)
+                    ''' Converting player location into court coordinates '''
+                    player_locs_all_classes = cv2.perspectiveTransform((player_ub_all_classes.reshape(-1, 2)).astype(np.float32)[np.newaxis], helper_player_tracking.get_H(t, MATCH_ID, court_gt, std_court_points))[0]
+                    boxes_k_all_classes[:, 5:7] = player_locs_all_classes
+                    ''' boxes_k_all_classes format here = [frame counter, u,v,w,h, court x coordinate, court y coordinate, final team number]'''
 
                 if DEBUG:
                     rounded_box = np.round(
@@ -201,17 +230,57 @@ def run_player_tracking_ss(match_details, to_save):
                     '''Printing blue color as detectron predictions'''
                     [cv2.rectangle(frame, tuple(box[0:2]), tuple(box[2:4]), (255, 0, 0), 1) for box in rounded_box]
                     std_img_copy = std_img.copy()  # Court visualisation
-                    [cv2.circle(std_img_copy, tuple(c), 5, (255, 0, 0), 1) for c in
-                    rounded_loc]  # Printing player court position on court outline
+                    [cv2.circle(std_img_copy, tuple(c), 5, (255, 0, 0), 1) for c in rounded_loc]  # Printing player court position on court outline
 
                 # step 1, filter out persons outside the court
+                if boxes_k_all_classes.size > 0:
+                    '''Removing player based on court coordinates'''
+                    boxes_k_all_classes = boxes_k_all_classes[
+                        (boxes_k_all_classes[:, 5] >= 22.8) & (boxes_k_all_classes[:, 5] <= 873.2) & (boxes_k_all_classes[:, 6] >= 176) & (boxes_k_all_classes[:, 6] <= 720)]
+
+                cv2.imshow('frame', frame)
                 if boxes_k.size > 0:
                     '''Removing player based on court coordinates'''
                     boxes_k = boxes_k[
                         (boxes_k[:, 5] >= 22.8) & (boxes_k[:, 5] <= 873.2) & (boxes_k[:, 6] >= 176) & (boxes_k[:, 6] <= 720)]
                     # optionally, correct box height based on average box height for the nearby player in the k-1 step
-
+                    '''Get all players nearby each player by pixel values'''
                     print(boxes_k)
+                    for player_bbox_index in range(len(boxes_k)):
+                        player_bbox = boxes_k[player_bbox_index]
+                        player_distances = []  # one row per tracked locations, one col per detected locations
+                        for p in boxes_k_all_classes:
+                            player_distances.append(np.linalg.norm(player_bbox[1:3] - p[1:3])) #Euclidean distance using pixels
+                        nearby_player_candidate_index = [index for index in range(len(player_distances)) if (player_distances[index] < 200) & (player_distances[index] != 0)] #Get all those close by except itself
+                        '''Calculate average height'''
+                        avg_height = np.mean(boxes_k_all_classes[nearby_player_candidate_index][:, 4]) #Calculate average height of all nearby
+                        if player_bbox[4] < avg_height*0.4: #Smaller than 0.6 of the average height
+                            u,v,w,h = player_bbox[1:5]
+                            new_height = (avg_height + h)/2 # New height is average of original height and average height of those around
+                            original_coordinate_top = v - h/2 # Original top of box
+                            new_v = original_coordinate_top + new_height/2 
+                            '''Shift value of 'v' where top coordinate of box is equal to previously, 
+                            but updated to new h (so that we shift the bbox downwards since 
+                            mostly we detect the top half of ths body)'''
+                            boxes_k[player_bbox_index][2] = new_v
+                            boxes_k[player_bbox_index][4] = new_height
+                            helper_player_tracking.print_box_uvwh(frame, boxes_k[player_bbox_index][1:5], (255, 255, 255), 5)
+
+                        if player_bbox[4] > avg_height*1.6: # Larger than 1.4 of the average height
+                            u,v,w,h = player_bbox[1:5]
+                            new_height = (avg_height + h)/2 # New height is average of original height and average height of those around
+                            # original_coordinate_bottom = v + h/2 # Original top of box
+                            # new_v = original_coordinate_bottom - new_height/2 
+                            # boxes_k[player_bbox_index][2] = new_v
+                            boxes_k[player_bbox_index][4] = new_height
+                            ''' Only changing height here. This is because
+                                For increase in height, it can be in both directions 
+                                1. 1 player detected originally then another player comes on top of him and both are detected as 1 (increase in height upwards)
+                                2. 1 player detected orignally but due to occlusion, only detect small part of him (from head). Subsequently, increase back to original size (increase in height downwards)
+
+                                Thus, cannot set top/bottom of bbox strictly. Havent thought of optimal solution yet
+                            '''
+                            helper_player_tracking.print_box_uvwh(frame, boxes_k[player_bbox_index][1:5], (0, 0, 0), 5)
 
                 # step 2, call predict for all act_tracks
                 for track in act_tracks:
@@ -220,8 +289,7 @@ def run_player_tracking_ss(match_details, to_save):
 
                 # step 3,
                 if len(act_tracks) > 0:  # Refer to step 8.2 for similar explanation
-                    candidates = [track for track in act_tracks if np.max(
-                        track['box_kf'].P[0:4, 0:4]) < 200]  # If all uncertainty of u,v,w,h,du,dv is < 200, keep as candidate
+                    candidates = [track for track in act_tracks if np.max(track['box_kf'].P[0:4, 0:4]) < 200]  # If all uncertainty of u,v,w,h,du,dv is < 200, keep as candidate
                     non_candidates = [track for track in act_tracks if np.max(track['box_kf'].P[0:4, 0:4]) >= 200]
                     if len(candidates) > 0:
                         act_track_boxes = np.array([track['box_kf'].x[0:4] for track in candidates]).reshape(-1,
@@ -370,6 +438,7 @@ def run_player_tracking_ss(match_details, to_save):
                 for box in boxes_k3:
                     new_box_kf = deepcopy(box_kf)  # New pixel coordinate kalman filter per bbox (new boxes)
                     new_box_kf.x = np.concatenate([box[1:5], np.array([0., 0.])])  # concatenating state estimate u,v,w,h,du,dv
+                    '''We initialise each new box with box coordinate with 0 velocity du, dv'''
                     new_box_kf.P = BOX_KF_INIT_P  # Initial covariance of pixel coordinate state (u,v,w,h,du,dv). Higher uncertainty is put on du, dv at the moment.
                     new_loc_kf = deepcopy(loc_kf)  # New court location kalman filter
                     new_loc_kf.x = np.concatenate([box[5:7], np.array([0., 0.])])  # concatenating x,y,dx,dy court coordinate
@@ -415,15 +484,22 @@ def run_player_tracking_ss(match_details, to_save):
 
                 cv2.imshow('frame', frame)
                 cv2.imshow('std_img', std_img_copy)
-                # if k < 67:
+                # if k < 135:
                 #     cv2.waitKey(10)
                 # else:
                 #     cv2.waitKey(0)
                 cv2.waitKey(1)
-                print(t)
+                print(k)
                 t += PER_FRAME
 
+
+            # print("BOX_KF")
+            # print(act_tracks[0]['box_kf'])
+            # print("BOX_XS")
+            # print(act_tracks[0]['box_xs'])
+
             # step 9, smoothing
+            '''Smoothing using each tracks mean and covariance'''
             for track in act_tracks:
                 smoothed_xs, smoothed_Ps, _, _ = track['box_kf'].rts_smoother(np.array(track['box_xs']).reshape(-1, 6, 1),
                                                                             np.array(track['box_Ps']).reshape(-1, 6, 6))
@@ -455,8 +531,7 @@ def run_player_tracking_ss(match_details, to_save):
                 height, width = frame.shape[0:2]
                 k = int(round((t - START_MS) / PER_FRAME)) + 1
                 for track_i in range(len(act_tracks)):
-                    k0 = int(act_tracks[track_i]['zs'][0][
-                                0])  # Extracts each actual track and then does some computation to draw them out
+                    k0 = int(act_tracks[track_i]['zs'][0][0])  # Extracts each actual track and then does some computation to draw them out
                     k_i = k - k0
                     if k >= k0 and k_i < act_tracks[track_i]['smo_box_xs'].shape[0]:
                         box = act_tracks[track_i]['smo_box_xs'][k_i, 0:4]
@@ -496,7 +571,7 @@ def run_player_tracking_ss(match_details, to_save):
                             print('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1' % (
                                 k, track_i + len(act_tracks) + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
                 cv2.imshow('frame', frame)
-                cv2.waitKey(20)
+                cv2.waitKey(1)
                 t += PER_FRAME
             
             ID0 += len(act_tracks)
