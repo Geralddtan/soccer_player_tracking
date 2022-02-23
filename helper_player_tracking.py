@@ -128,3 +128,5 @@ def print_box_uvwh(frame, uvwh, color, thickness):
     y2 = int(v + h/2)
     ''' Draw rectangle of new bbox '''
     return cv2.rectangle(frame, tuple((x1, y1)), tuple((x2, y2)), color, thickness)
+
+# def get_deleted_track_last_confident_location(track):

@@ -26,6 +26,7 @@ def run_player_tracking_ss(match_details, to_save):
         OUT_CSV_FOLDER = "tuning/full_image_color_hist_michael_hellinger_michael_npz_edit_box_height_surrounding_players_0.6_detectron_threshold_process_uncertainty_high_medium_measurement_uncertainty_uv"
         OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/%s/data/m-%03d.txt" % (OUT_CSV_FOLDER, MATCH_ID)
         ID0 = 1
+        TRACK_ID = 0
         for team in TEAM_OPTIONS:
             TEAM = team # 0=team1, 1=team1_keeper, 2=team2, 3=team2_keeper, 4=referee
             DEBUG = True
@@ -245,7 +246,6 @@ def run_player_tracking_ss(match_details, to_save):
                         (boxes_k[:, 5] >= 22.8) & (boxes_k[:, 5] <= 873.2) & (boxes_k[:, 6] >= 176) & (boxes_k[:, 6] <= 720)]
                     # optionally, correct box height based on average box height for the nearby player in the k-1 step
                     '''Get all players nearby each player by pixel values'''
-                    print(boxes_k)
                     for player_bbox_index in range(len(boxes_k)):
                         player_bbox = boxes_k[player_bbox_index]
                         player_distances = []  # one row per tracked locations, one col per detected locations
@@ -311,6 +311,7 @@ def run_player_tracking_ss(match_details, to_save):
                     act_tracks2 = act_tracks
                     boxes_k2 = boxes_k
 
+
                 # step 4, #Same as step 3 only slight differences
                 if len(act_tracks2) > 0:  # For boxes not assigned in first phase (above)
                     candidates = [track for track in act_tracks2 if np.max(track['box_kf'].P[0:4, 0:4]) < 2000]
@@ -333,6 +334,7 @@ def run_player_tracking_ss(match_details, to_save):
                 else:
                     act_tracks3 = act_tracks2
                     boxes_k3 = boxes_k2
+
 
                 # step 5, #Same as step 3/4 just using court coordinate instead
                 if len(act_tracks3) > 0:
@@ -366,6 +368,10 @@ def run_player_tracking_ss(match_details, to_save):
                     to_keep = []
                     for i in range(len(act_tracks)):
                         if np.max(act_tracks[i]['box_kf'].P) > 1e6:  # Filtering out those tracks with high uncertainty
+                            print("P:")
+                            print(act_tracks[i]['box_kf'].P)
+                            print(act_tracks[i]['box_Ps'])
+                            # return
                             delt_tracks.append(act_tracks[i])
                         else:
                             to_keep.append(i)
@@ -443,9 +449,16 @@ def run_player_tracking_ss(match_details, to_save):
                     new_loc_kf = deepcopy(loc_kf)  # New court location kalman filter
                     new_loc_kf.x = np.concatenate([box[5:7], np.array([0., 0.])])  # concatenating x,y,dx,dy court coordinate
                     new_loc_kf.P = LOC_KF_INIT_P  # Initial covariance of court coordinate state (x,y,dx,dy). Higher uncertainty is put on dx, dy at the moment.
-                    hold_tracks.append({'box_kf': new_box_kf, 'loc_kf': new_loc_kf, 'zs': [box],
+                    hold_tracks.append({'id': TRACK_ID, 'box_kf': new_box_kf, 'loc_kf': new_loc_kf, 'zs': [box],
                                         'box_xs': [new_box_kf.x], 'box_Ps': [new_box_kf.P], 'loc_xs': [new_loc_kf.x],
                                         'loc_Ps': [new_loc_kf.P]})
+                    TRACK_ID += 1
+
+                    '''
+                    'zs': Keeps assigned detectron bounding box coordinates
+                    'xs': keeps posterior location (final KF predicted location)
+                    'Ps': keeps KF location uncertainty (u,v,w,h,du,dv)
+                    '''
 
                 '''Printing holding tracks in red'''
                 if DEBUG:
@@ -489,7 +502,7 @@ def run_player_tracking_ss(match_details, to_save):
                 # else:
                 #     cv2.waitKey(0)
                 cv2.waitKey(1)
-                print(k)
+                # print(k)
                 t += PER_FRAME
 
 
@@ -524,52 +537,55 @@ def run_player_tracking_ss(match_details, to_save):
                         [128, 128, 255], [128, 255, 128], [255, 128, 128],
                         [128, 255, 255], [255, 128, 255], [255, 255, 128]]
 
+
             t = START_MS
             cap.set(0, t)
             while t <= END_MS:
                 ret, frame = cap.read()
                 height, width = frame.shape[0:2]
                 k = int(round((t - START_MS) / PER_FRAME)) + 1
-                for track_i in range(len(act_tracks)):
-                    k0 = int(act_tracks[track_i]['zs'][0][0])  # Extracts each actual track and then does some computation to draw them out
-                    k_i = k - k0
-                    if k >= k0 and k_i < act_tracks[track_i]['smo_box_xs'].shape[0]:
-                        box = act_tracks[track_i]['smo_box_xs'][k_i, 0:4]
+                for track in act_tracks:
+                    k0 = int(track['zs'][0][0])   # k0 is the first frame at which this track was generated (came into view)
+                    # Extracts each actual track and then does some computation to draw them out
+                    k_i = k - k0 # The number of frames from start (of its existence) till current frame
+                    if k >= k0 and k_i < track['smo_box_xs'].shape[0]: #If this track exists within this current frame
+                        box = track['smo_box_xs'][k_i, 0:4]
                         box[0] = box[0] - box[2] / 2
                         box[1] = box[1] - box[3] / 2
                         box[2] = box[0] + box[2]
                         box[3] = box[1] + box[3]
-                        max_P = np.max(act_tracks[track_i]['smo_box_Ps'][k_i, 0:4, 0:4])
+                        max_P = np.max(track['smo_box_Ps'][k_i, 0:4, 0:4])
                         if box[0] < width and box[2] >= 0 and box[1] < height and box[3] >= 0 and max_P < MAX_P:  # Filter if out of screen/if smoothed covariance higher than MAX_P
                             rounded_box = np.round(box).astype(int)
                             cv2.rectangle(frame, (int(rounded_box[0]), int(rounded_box[1])),
-                                        (int(rounded_box[2]), int(rounded_box[3])), color_list[track_i % len(color_list)], 1)
+                                        (int(rounded_box[2]), int(rounded_box[3])), color_list[track['id'] % len(color_list)], 1)
                             # cv2.rectangle(frame, tuple(rounded_box[0:2]), tuple(rounded_box[2:4]), color_list[track_i%len(color_list)], 1)
                             print('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1' % (
-                                k, track_i + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
+                                k, track['id'] + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
                             if to_save:
                                 out = open(OUT_CSV, 'a+')
                                 out.write('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1\n' % (
-                                    k, track_i + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
+                                    k, track['id'] + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
                                 out.close()
                             
-                for track_i in range(len(delt_tracks)):
-                    k0 = int(delt_tracks[track_i]['zs'][0][0])
+                for track in delt_tracks:
+                    k0 = int(track['zs'][0][0])
                     k_i = k - k0
-                    if k >= k0 and k_i < delt_tracks[track_i]['smo_box_xs'].shape[0]:
-                        box = delt_tracks[track_i]['smo_box_xs'][k_i, 0:4]
+                    if k >= k0 and k_i < track['smo_box_xs'].shape[0]:
+                        box = track['smo_box_xs'][k_i, 0:4]
                         box[0] = box[0] - box[2] / 2
                         box[1] = box[1] - box[3] / 2
                         box[2] = box[0] + box[2]
                         box[3] = box[1] + box[3]
-                        max_P = np.max(delt_tracks[track_i]['smo_box_Ps'][k_i, 0:4, 0:4])
+                        max_P = np.max(track['smo_box_Ps'][k_i, 0:4, 0:4])
                         if box[0] < width and box[2] >= 0 and box[1] < height and box[3] >= 0 and max_P < MAX_P:
                             rounded_box = np.round(box).astype(int)
                             cv2.rectangle(frame, (int(rounded_box[0]), int(rounded_box[1])),
-                                        (int(rounded_box[2]), int(rounded_box[3])), color_list[track_i % len(color_list)], 1)
+                                        (int(rounded_box[2]), int(rounded_box[3])), color_list[track['id'] % len(color_list)], 1)
                             # cv2.rectangle(frame, tuple(rounded_box[0:2]), tuple(rounded_box[2:4]), color_list[track_i%len(color_list)], 1)
                             print('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1' % (
-                                k, track_i + len(act_tracks) + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
+                                k, track['id'] + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
+                                # Removed "+ len(act_tracks)"
                 cv2.imshow('frame', frame)
                 cv2.waitKey(1)
                 t += PER_FRAME
