@@ -597,10 +597,10 @@ def run_player_tracking_ss(match_details, to_save):
                         if box[0] < width and box[2] >= 0 and box[1] < height and box[3] >= 0 and max_P < MAX_P:  # Filter if out of screen/if smoothed covariance higher than MAX_P
                             rounded_box = np.round(box).astype(int)
                             cv2.rectangle(frame, (int(rounded_box[0]), int(rounded_box[1])),
-                                        (int(rounded_box[2]), int(rounded_box[3])), color_list[track_i % len(color_list)], 1)
+                                        (int(rounded_box[2]), int(rounded_box[3])), color_list[track['id'] % len(color_list)], 1)
                             # cv2.rectangle(frame, tuple(rounded_box[0:2]), tuple(rounded_box[2:4]), color_list[track_i%len(color_list)], 1)
                             print('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1' % (
-                                k, track['id'] + len(act_tracks) + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
+                                k, track['id'] + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
                             if to_save:
                                 out = open(OUT_CSV, 'a+')
                                 out.write('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1\n' % (
@@ -626,7 +626,7 @@ def run_player_tracking_ss(match_details, to_save):
                                 k, track['id'] + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
                                 # Removed "+ len(act_tracks)"
                 cv2.imshow('frame', frame)
-                cv2.waitKey(0)
+                cv2.waitKey(1)
                 t += PER_FRAME
             
             ID0 = ID0 + len(act_tracks) + len(not_in_view_tracks)
