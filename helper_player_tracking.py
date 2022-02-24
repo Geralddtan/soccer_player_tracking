@@ -128,3 +128,8 @@ def print_box_uvwh(frame, uvwh, color, thickness):
     y2 = int(v + h/2)
     ''' Draw rectangle of new bbox '''
     return cv2.rectangle(frame, tuple((x1, y1)), tuple((x2, y2)), color, thickness)
+
+def valid_pixel_coordinate(x,y, width, height):
+    is_valid_x = (x <= width) and (x >= 0)
+    is_valid_y = (y <= height) and (y >= 0)
+    return is_valid_x and is_valid_y
