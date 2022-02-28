@@ -23,7 +23,7 @@ def run_player_tracking_ss(match_details, to_save):
         COLOR_THRESHOLD = 0.6 # 0.2 # 0.6
         MAX_P = 1000
         TEAM_OPTIONS = [0,1,2,3,4]
-        OUT_CSV_FOLDER = "not_in_view_tracks/full_image_color_hist_michael_hellinger_michael_npz_edit_box_height_surrounding_players_0.6_detectron_threshold_process_uncertainty_high_medium_measurement_uncertainty_uv_niv_tracks"
+        OUT_CSV_FOLDER = "with_reassignment/full_image_color_hist_michael_hellinger_michael_npz_edit_box_height_surrounding_players_0.6_detectron_threshold_process_uncertainty_high_medium_measurement_uncertainty_uv_niv_tracks_with_reassignment_use_frames_last_det"
         OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/%s/data/m-%03d.txt" % (OUT_CSV_FOLDER, MATCH_ID)
         ID0 = 1
         TRACK_ID = 0
@@ -300,6 +300,7 @@ def run_player_tracking_ss(match_details, to_save):
                                                             act_track_boxes)  # Obtain matched box (from next frame) to these actual tracks
                         [candidates[row_ind[i]]['zs'].append(boxes_k[col_ind[i]]) for i in range(
                             row_ind.size)]  # Append these matches boxes to these candidates 'zs' which stores all of its past matches
+                    
                         act_tracks2 = [candidates[i] for i in range(len(candidates)) if
                                     i not in row_ind] + non_candidates  # If no IOU matching/covariance >200, go to next stage
                         # act_tracks2 is the remaining of those which have not been assigned
@@ -326,6 +327,7 @@ def run_player_tracking_ss(match_details, to_save):
                         row_ind, col_ind, distance_matrix = helper_player_tracking.assign_by_euclidean(boxes_k2[:, 1:3],
                                                                                 act_track_boxs)  # [5:7] is court coordinate
                         [candidates[row_ind[i]]['zs'].append(boxes_k2[col_ind[i]]) for i in range(row_ind.size)]
+                        
                         act_tracks3 = [candidates[i] for i in range(len(candidates)) if i not in row_ind] + non_candidates
                         # Those which still haven't been assigned goes to euclidean court coordinate measurement
                         boxes_k3 = boxes_k2[[i for i in range(boxes_k2.shape[0]) if i not in col_ind]]
@@ -343,6 +345,7 @@ def run_player_tracking_ss(match_details, to_save):
                     row_ind, col_ind, distance_matrix = helper_player_tracking.assign_by_euclidean(boxes_k3[:, 5:7],
                                                                             act_track_locs)  # [5:7] is court coordinate
                     [act_tracks3[row_ind[i]]['zs'].append(boxes_k3[col_ind[i]]) for i in range(row_ind.size)]
+
                     # print("using court coordinate")
                     # [print(tuple(np.round(boxes_k3[col_ind[i], 1:3]).astype(int)))for i in range(row_ind.size)]
                     [cv2.circle(frame, tuple(np.round(boxes_k3[col_ind[i], 1:3]).astype(int)), 20, (0, 255, 255), 1) for i in
@@ -358,6 +361,10 @@ def run_player_tracking_ss(match_details, to_save):
                     if track['zs'][-1][0] == k:  # with assigned box  (If they have a box assigned to it at current frame k, then perform updating)
                         track['box_kf'].update(track['zs'][-1][1:5])  ##Update with pixel coordinates
                         track['loc_kf'].update(track['zs'][-1][5:7])  # Update with court coordinate
+                        track['frames_since_last_detection'] = 0
+                    else: #If not assigned in current frame
+                        track['frames_since_last_detection'] += 1
+
                     track['box_xs'].append(
                         track['box_kf'].x)  # Posterior pixel location from kalman filter (final prediction after updating)
                     track['box_Ps'].append(track['box_kf'].P)  # Uncertainty for pixel location (u,v,w,h,du,dv)
@@ -370,10 +377,10 @@ def run_player_tracking_ss(match_details, to_save):
                     for i in range(len(act_tracks)):
                         x = act_tracks[i]['box_kf'].x[0]
                         y = act_tracks[i]['box_kf'].x[1]
-                        if (np.max(act_tracks[i]['box_kf'].P) > 1e5) and not (helper_player_tracking.valid_pixel_coordinate(x, y, width, height)):  # Filtering out those tracks with high uncertainty
+                        if (act_tracks[i]['frames_since_last_detection'] > 7) and not (helper_player_tracking.valid_pixel_coordinate(x, y, width, height)):  # Filtering out those tracks with high uncertainty
                             # If any of the pixel coordinate is  < 0 (out of screen) + is uncertain == player no longer in view
                             not_in_view_tracks.append(act_tracks[i])
-                        elif np.max(act_tracks[i]['box_kf'].P) > 1e6:
+                        elif act_tracks[i]['frames_since_last_detection'] > 75:
                             '''
                             Set high value to ensure we are very certain before we delete tracks. Those tracks which should be deleted
                             but havent reach 1e6 -- are still okay since we have measures put in place (to only use those where 
@@ -400,6 +407,7 @@ def run_player_tracking_ss(match_details, to_save):
                     row_ind, col_ind, _ = helper_player_tracking.assign_by_iou(boxes_k[:, 1:5],
                                                         hold_track_boxes)  # Assign all next frame boxes (boxes_k) to holding track as per IOU
                     [hold_tracks[row_ind[i]]['zs'].append(boxes_k[col_ind[i]]) for i in range(row_ind.size)]
+
                     # Assign next frame box (boxes_k[col_ind]) to holding track (hold_tracks[row_ind])
                     # 'zs' essentially saves all the new bboxes (across frames) which has been assigned to this holding track
                     hold_tracks2 = [hold_tracks[i] for i in range(len(hold_tracks)) if
@@ -418,6 +426,7 @@ def run_player_tracking_ss(match_details, to_save):
                     row_ind, col_ind, _ = helper_player_tracking.assign_by_euclidean(boxes_k2[:, 1:3], kfs)  # [5:7] is court coordinate
 
                     [hold_tracks2[row_ind[i]]['zs'].append(boxes_k2[col_ind[i]]) for i in range(row_ind.size)]
+
                     boxes_k3 = boxes_k2[[i for i in range(boxes_k2.shape[0]) if
                                         i not in col_ind]]  # Those which continue to not be assigned moves to next stage
                 else:
@@ -429,6 +438,10 @@ def run_player_tracking_ss(match_details, to_save):
                         # If track has been assigned to something at this current frame, then update the kalman filter
                         track['box_kf'].update(track['zs'][-1][1:5])
                         track['loc_kf'].update(track['zs'][-1][5:7])
+                        track['frames_since_last_detection'] = 0
+                    else: #If not assigned in current frame
+                        track['frames_since_last_detection'] += 1
+
                     track['box_xs'].append(
                         track['box_kf'].x)  # Posterior pixel location from kalman filter (final prediction after updating)
                     track['box_Ps'].append(track['box_kf'].P)  # Uncertainty for pixel location (u,v,w,h,du,dv)
@@ -450,18 +463,29 @@ def run_player_tracking_ss(match_details, to_save):
                             to_keep.append(i)
                     hold_tracks = [hold_tracks[i] for i in range(len(hold_tracks)) if i in to_keep]
 
-                    # step 8.6 (Initialises holding tracks for new players)
-                for box in boxes_k3:
-                    new_box_kf = deepcopy(box_kf)  # New pixel coordinate kalman filter per bbox (new boxes)
-                    new_box_kf.x = np.concatenate([box[1:5], np.array([0., 0.])])  # concatenating state estimate u,v,w,h,du,dv
-                    '''We initialise each new box with box coordinate with 0 velocity du, dv'''
-                    new_box_kf.P = BOX_KF_INIT_P  # Initial covariance of pixel coordinate state (u,v,w,h,du,dv). Higher uncertainty is put on du, dv at the moment.
-                    new_loc_kf = deepcopy(loc_kf)  # New court location kalman filter
-                    new_loc_kf.x = np.concatenate([box[5:7], np.array([0., 0.])])  # concatenating x,y,dx,dy court coordinate
-                    new_loc_kf.P = LOC_KF_INIT_P  # Initial covariance of court coordinate state (x,y,dx,dy). Higher uncertainty is put on dx, dy at the moment.
-                    hold_tracks.append({'id': TRACK_ID, 'box_kf': new_box_kf, 'loc_kf': new_loc_kf, 'zs': [box],
-                                        'box_xs': [new_box_kf.x], 'box_Ps': [new_box_kf.P], 'loc_xs': [new_loc_kf.x],
-                                        'loc_Ps': [new_loc_kf.P]})
+                '''Check if we can perform any reassignment'''
+                if len(not_in_view_tracks) > 0:
+                    not_in_view_boxs = np.array([helper_player_tracking.get_track_last_acc_loc_coords(track) for track in not_in_view_tracks]).reshape(-1, 2)
+                    row_ind, col_ind, distance_matrix = helper_player_tracking.assign_by_euclidean(boxes_k3[:, 5:7],
+                                                                                not_in_view_boxs, gating = 75)  # [5:7] is court coordinate
+
+                    for i in range(len(row_ind)):
+                        #Obtain old track id
+                        existing_track_id = not_in_view_tracks[row_ind[i]]['id']
+                        newly_detected_box = boxes_k3[col_ind[i]]
+                        #Create new holding track with old track id
+                        new_track = helper_player_tracking.create_new_track(box_kf, newly_detected_box, BOX_KF_INIT_P, loc_kf, LOC_KF_INIT_P, existing_track_id)
+                        hold_tracks.append(new_track)
+                        
+                    boxes_k4 = boxes_k3[[i for i in range(boxes_k3.shape[0]) if
+                                        i not in col_ind]]  # Those which continue to not be assigned moves to next stage   
+                else:
+                    boxes_k4 = boxes_k3
+
+                # step 8.6 (Initialises holding tracks for new players)
+                for box in boxes_k4:                                           
+                    new_track = helper_player_tracking.create_new_track(box_kf, box, BOX_KF_INIT_P, loc_kf, LOC_KF_INIT_P, TRACK_ID)
+                    hold_tracks.append(new_track)
                     TRACK_ID += 1
 
                     '''
@@ -507,19 +531,9 @@ def run_player_tracking_ss(match_details, to_save):
 
                 cv2.imshow('frame', frame)
                 cv2.imshow('std_img', std_img_copy)
-                # if k < 135:
-                #     cv2.waitKey(10)
-                # else:
-                #     cv2.waitKey(0)
                 cv2.waitKey(1)
                 # print(k)
                 t += PER_FRAME
-
-
-            # print("BOX_KF")
-            # print(act_tracks[0]['box_kf'])
-            # print("BOX_XS")
-            # print(act_tracks[0]['box_xs'])
 
             # step 9, smoothing
             '''Smoothing using each tracks mean and covariance'''
@@ -607,24 +621,25 @@ def run_player_tracking_ss(match_details, to_save):
                                     k, track['id'] + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
                                 out.close()
                                 
-                for track in delt_tracks:
-                    k0 = int(track['zs'][0][0])
-                    k_i = k - k0
-                    if k >= k0 and k_i < track['smo_box_xs'].shape[0]:
-                        box = track['smo_box_xs'][k_i, 0:4]
-                        box[0] = box[0] - box[2] / 2
-                        box[1] = box[1] - box[3] / 2
-                        box[2] = box[0] + box[2]
-                        box[3] = box[1] + box[3]
-                        max_P = np.max(track['smo_box_Ps'][k_i, 0:4, 0:4])
-                        if box[0] < width and box[2] >= 0 and box[1] < height and box[3] >= 0 and max_P < MAX_P:
-                            rounded_box = np.round(box).astype(int)
-                            cv2.rectangle(frame, (int(rounded_box[0]), int(rounded_box[1])),
-                                        (int(rounded_box[2]), int(rounded_box[3])), color_list[track['id'] % len(color_list)], 1)
-                            # cv2.rectangle(frame, tuple(rounded_box[0:2]), tuple(rounded_box[2:4]), color_list[track_i%len(color_list)], 1)
-                            print('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1' % (
-                                k, track['id'] + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
-                                # Removed "+ len(act_tracks)"
+                # for track in delt_tracks:
+                #     k0 = int(track['zs'][0][0])
+                #     k_i = k - k0
+                #     if k >= k0 and k_i < track['smo_box_xs'].shape[0]:
+                #         box = track['smo_box_xs'][k_i, 0:4]
+                #         box[0] = box[0] - box[2] / 2
+                #         box[1] = box[1] - box[3] / 2
+                #         box[2] = box[0] + box[2]
+                #         box[3] = box[1] + box[3]
+                #         max_P = np.max(track['smo_box_Ps'][k_i, 0:4, 0:4])
+                #         if box[0] < width and box[2] >= 0 and box[1] < height and box[3] >= 0 and max_P < MAX_P:
+                #             rounded_box = np.round(box).astype(int)
+                #             # cv2.rectangle(frame, (int(rounded_box[0]), int(rounded_box[1])),
+                #             #             (int(rounded_box[2]), int(rounded_box[3])), color_list[track['id'] % len(color_list)], 1)
+                #             # cv2.rectangle(frame, tuple(rounded_box[0:2]), tuple(rounded_box[2:4]), color_list[track_i%len(color_list)], 1)
+                #             print('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1' % (
+                #                 k, track['id'] + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
+                #                 # Removed "+ len(act_tracks)"
+
                 cv2.imshow('frame', frame)
                 cv2.waitKey(1)
                 t += PER_FRAME
