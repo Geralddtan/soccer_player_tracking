@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 from filterpy.stats import mahalanobis
+from copy import deepcopy
 
 def get_H(t, MATCH_ID, court_gt, std_court_points):
     prev = court_gt[(court_gt.match_id == MATCH_ID) & (court_gt.time_ms <= t)].to_numpy()[-1, 1:10]
@@ -15,6 +16,25 @@ def get_H(t, MATCH_ID, court_gt, std_court_points):
                                     (np.array(std_court_points[[14, 33, 15, 34]]).reshape(4, 2)).astype(np.float32))
     return H
 
+def get_standard_court(court_points, img_size=(896, 896, 3), sport='soccer', line_thickness=2):
+    if sport == 'soccer':
+        img = np.zeros(img_size, dtype=np.uint8)
+        points = np.round(
+            court_points[:, ::-1] * 8 + [(img_size[1] - court_points[19, 1] * 8) / 2, img_size[0] / 2]).astype(np.int)
+        cv2.circle(img, tuple(points[10]), 73, (255, 0, 0), line_thickness)
+        img[:, 0:points[8, 0]] = 0
+        cv2.circle(img, tuple(points[29]), 73, (255, 0, 0), line_thickness)
+        img[:, points[27, 0]:] = 0
+        cv2.rectangle(img, tuple(points[14]), tuple(points[34]), (255, 0, 0), line_thickness)
+        cv2.rectangle(img, tuple(points[4]), tuple(points[7]), (255, 0, 0), line_thickness)
+        cv2.rectangle(img, tuple(points[0]), tuple(points[3]), (255, 0, 0), line_thickness)
+        cv2.rectangle(img, tuple(points[19]), tuple(points[22]), (255, 0, 0), line_thickness)
+        cv2.rectangle(img, tuple(points[23]), tuple(points[26]), (255, 0, 0), line_thickness)
+        cv2.line(img, tuple(points[16]), tuple(points[18]), (255, 0, 0), line_thickness)
+        cv2.circle(img, tuple(points[17]), 73, (255, 0, 0), line_thickness)
+        cv2.circle(img, tuple(points[10]), 3, (0, 0, 255), -1)
+        cv2.circle(img, tuple(points[29]), 3, (0, 0, 255), -1)
+        return img, court_points[:, ::-1] * 8 + [(img_size[1] - court_points[19, 1] * 8) / 2, img_size[0] / 2]
 
 def iou(bbox, candidates):  # copied from Deep_Sort
     """Computer intersection over union.
@@ -97,26 +117,6 @@ def assign_by_euclidean(locs_dt, locs_track, gating=50.0):
             to_keep.append(i)
     return row_ind[to_keep], col_ind[to_keep], distance_matrix
 
-def get_standard_court(court_points, img_size=(896, 896, 3), sport='soccer', line_thickness=2):
-    if sport == 'soccer':
-        img = np.zeros(img_size, dtype=np.uint8)
-        points = np.round(
-            court_points[:, ::-1] * 8 + [(img_size[1] - court_points[19, 1] * 8) / 2, img_size[0] / 2]).astype(np.int)
-        cv2.circle(img, tuple(points[10]), 73, (255, 0, 0), line_thickness)
-        img[:, 0:points[8, 0]] = 0
-        cv2.circle(img, tuple(points[29]), 73, (255, 0, 0), line_thickness)
-        img[:, points[27, 0]:] = 0
-        cv2.rectangle(img, tuple(points[14]), tuple(points[34]), (255, 0, 0), line_thickness)
-        cv2.rectangle(img, tuple(points[4]), tuple(points[7]), (255, 0, 0), line_thickness)
-        cv2.rectangle(img, tuple(points[0]), tuple(points[3]), (255, 0, 0), line_thickness)
-        cv2.rectangle(img, tuple(points[19]), tuple(points[22]), (255, 0, 0), line_thickness)
-        cv2.rectangle(img, tuple(points[23]), tuple(points[26]), (255, 0, 0), line_thickness)
-        cv2.line(img, tuple(points[16]), tuple(points[18]), (255, 0, 0), line_thickness)
-        cv2.circle(img, tuple(points[17]), 73, (255, 0, 0), line_thickness)
-        cv2.circle(img, tuple(points[10]), 3, (0, 0, 255), -1)
-        cv2.circle(img, tuple(points[29]), 3, (0, 0, 255), -1)
-        return img, court_points[:, ::-1] * 8 + [(img_size[1] - court_points[19, 1] * 8) / 2, img_size[0] / 2]
-
 def print_box_uvwh(frame, uvwh, color, thickness):
     u = uvwh[0]
     v = uvwh[1]
@@ -133,3 +133,20 @@ def valid_pixel_coordinate(x,y, width, height):
     is_valid_x = (x <= width) and (x >= 0)
     is_valid_y = (y <= height) and (y >= 0)
     return is_valid_x and is_valid_y
+
+def get_track_last_acc_loc_coords(track):
+    frames_since_last_detection = track['frames_since_last_detection']
+    loc_coords = track['loc_xs'][-(frames_since_last_detection + 1)]
+    return loc_coords[:2] #Only return coordinates
+
+def create_new_track(box_kf, detected_box, BOX_KF_INIT_P, loc_kf, LOC_KF_INIT_P, track_id):
+    new_box_kf = deepcopy(box_kf)  # New pixel coordinate kalman filter per bbox (new boxes)
+    new_box_kf.x = np.concatenate([detected_box[1:5], np.array([0., 0.])])  # concatenating state estimate u,v,w,h,du,dv
+    '''We initialise each new box with box coordinate with 0 velocity du, dv'''
+    new_box_kf.P = BOX_KF_INIT_P  # Initial covariance of pixel coordinate state (u,v,w,h,du,dv). Higher uncertainty is put on du, dv at the moment.
+    new_loc_kf = deepcopy(loc_kf)  # New court location kalman filter
+    new_loc_kf.x = np.concatenate([detected_box[5:7], np.array([0., 0.])])  # concatenating x,y,dx,dy court coordinate
+    new_loc_kf.P = LOC_KF_INIT_P  # Initial covariance of court coordinate state (x,y,dx,dy). Higher uncertainty is put on dx, dy at the moment.
+    return {'id': track_id, 'box_kf': new_box_kf, 'loc_kf': new_loc_kf, 'zs': [detected_box],
+                        'box_xs': [new_box_kf.x], 'box_Ps': [new_box_kf.P], 'loc_xs': [new_loc_kf.x],
+                        'loc_Ps': [new_loc_kf.P], 'frames_since_last_detection': 0}
