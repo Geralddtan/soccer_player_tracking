@@ -129,9 +129,9 @@ def print_box_uvwh(frame, uvwh, color, thickness):
     ''' Draw rectangle of new bbox '''
     return cv2.rectangle(frame, tuple((x1, y1)), tuple((x2, y2)), color, thickness)
 
-def valid_pixel_coordinate(x,y, width, height):
-    is_valid_x = (x <= width) and (x >= 0)
-    is_valid_y = (y <= height) and (y >= 0)
+def valid_pixel_coordinate(x,y, frame_width, frame_height):
+    is_valid_x = (x <= frame_width) and (x >= 0)
+    is_valid_y = (y <= frame_height) and (y >= 0)
     return is_valid_x and is_valid_y
 
 def get_track_last_acc_loc_coords(track):
