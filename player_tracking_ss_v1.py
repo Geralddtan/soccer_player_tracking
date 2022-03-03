@@ -17,7 +17,7 @@ def run_player_tracking_ss(match_details, to_save):
         VIDEO = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Deep Sort/detectron2-deepsort-pytorch/original_vids/m-%03d.mp4' % MATCH_ID
         FPS = detail[3]
         PER_FRAME = 1000 / FPS
-        CSV_FILES = "full_image_color_hist_michael_hellinger_michael_npz" #"halved_image_color_hist_optimised_intersect_michael_npz" #halved_image_color_hist_optimised_intersect" # "full_image_color_hist_michael_hellinger" # "full_image_color_hist_michael_intersect" # "halved_image_color_hist_michael_intersect" # "halved_image_color_hist_optimised_intersect"
+        CSV_FILES = "full_image_color_hist_michael_hellinger_michael_npz" 
         DT_CSV = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/ALL_CSV/%s/player_detection_colorhist/m-%03d-player-dt25-team-%d-%d.csv' % (CSV_FILES,MATCH_ID, START_MS, END_MS)
         DT_THRESHOLD = 0.6
         COLOR_THRESHOLD = 0.6 # 0.2 # 0.6
