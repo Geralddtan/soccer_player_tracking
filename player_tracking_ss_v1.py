@@ -23,7 +23,7 @@ def run_player_tracking_ss(match_details, to_save):
         COLOR_THRESHOLD = 0.6 # 0.2 # 0.6
         MAX_P = 1000
         TEAM_OPTIONS = [0,1,2,3,4]
-        OUT_CSV_FOLDER = "with_reassignment/full_image_color_hist_michael_hellinger_michael_npz_edit_box_height_surrounding_players_0.6_detectron_threshold_process_uncertainty_high_medium_measurement_uncertainty_uv_niv_tracks_with_reassignment_use_frames_last_det"
+        OUT_CSV_FOLDER = "with_reassignment/niv_tracks_with_reassignment_use_frames_last_det_inv_homog_impl_strict_niv_niv_removal"
         OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/%s/data/m-%03d.txt" % (OUT_CSV_FOLDER, MATCH_ID)
         ID0 = 1
         TRACK_ID = 0
@@ -138,7 +138,7 @@ def run_player_tracking_ss(match_details, to_save):
 
             # They first perform GNN to assign boxes to each other --> then use the assigned boxes to perform kalman filter update to get the next estimate
 
-            act_tracks, hold_tracks, not_in_view_tracks, delt_tracks = [], [], [], []
+            act_tracks, past_act_tracks, hold_tracks, not_in_view_tracks, delt_tracks = [], [], [], [], []
             # each track is a dictionary containing: kf, zs, xs, Ps
 
             player_boxes = pd.read_csv(DT_CSV).to_numpy()
@@ -204,12 +204,16 @@ def run_player_tracking_ss(match_details, to_save):
                 k = int(round((t - START_MS) / PER_FRAME)) + 1
                 boxes_k = player_boxes[player_boxes[:, 0] == k]  # Filtering predictions to only be from that specific frame
                 boxes_k_all_classes = player_boxes_all_classes[player_boxes_all_classes[:, 0] == k]  # Filtering predictions to only be from that specific frame
+                homog_transf =  helper_player_tracking.get_H(t, MATCH_ID, court_gt, std_court_points)
+                inv_homog_transf = np.linalg.inv(homog_transf)
+                std_img_copy = std_img.copy()  # Court visualisation
+                
                 ''' boxes_k format = [frame counter, u,v,w,h,detectron2 score, team1_similarity_score, final team number]'''
                 if boxes_k.size > 0:
                     player_ub = np.concatenate([boxes_k[:, 1:2], boxes_k[:, 2:3] + boxes_k[:, 4:5] / 2],
                                             axis=1)  # Player coordinate at middle top (using top of bbox as reference instead of bottom)
                     ''' Converting player location into court coordinates '''
-                    player_locs = cv2.perspectiveTransform((player_ub.reshape(-1, 2)).astype(np.float32)[np.newaxis], helper_player_tracking.get_H(t, MATCH_ID, court_gt, std_court_points))[0]
+                    player_locs = cv2.perspectiveTransform((player_ub.reshape(-1, 2)).astype(np.float32)[np.newaxis], homog_transf)[0]
                     boxes_k[:, 5:7] = player_locs
                     ''' boxes_k format here = [frame counter, u,v,w,h, court x coordinate, court y coordinate, final team number]'''
 
@@ -217,7 +221,7 @@ def run_player_tracking_ss(match_details, to_save):
                     player_ub_all_classes = np.concatenate([boxes_k_all_classes[:, 1:2], boxes_k_all_classes[:, 2:3] + boxes_k_all_classes[:, 4:5] / 2],
                                             axis=1)  # Player coordinate at middle top (using top of bbox as reference instead of bottom)
                     ''' Converting player location into court coordinates '''
-                    player_locs_all_classes = cv2.perspectiveTransform((player_ub_all_classes.reshape(-1, 2)).astype(np.float32)[np.newaxis], helper_player_tracking.get_H(t, MATCH_ID, court_gt, std_court_points))[0]
+                    player_locs_all_classes = cv2.perspectiveTransform((player_ub_all_classes.reshape(-1, 2)).astype(np.float32)[np.newaxis], homog_transf)[0]
                     boxes_k_all_classes[:, 5:7] = player_locs_all_classes
                     ''' boxes_k_all_classes format here = [frame counter, u,v,w,h, court x coordinate, court y coordinate, final team number]'''
 
@@ -231,7 +235,6 @@ def run_player_tracking_ss(match_details, to_save):
                     # rounded_loc = x,y court coordinate
                     '''Printing blue color as detectron predictions'''
                     [cv2.rectangle(frame, tuple(box[0:2]), tuple(box[2:4]), (255, 0, 0), 1) for box in rounded_box]
-                    std_img_copy = std_img.copy()  # Court visualisation
                     [cv2.circle(std_img_copy, tuple(c), 5, (255, 0, 0), 1) for c in rounded_loc]  # Printing player court position on court outline
 
                 # step 1, filter out persons outside the court
@@ -375,18 +378,28 @@ def run_player_tracking_ss(match_details, to_save):
                 if len(act_tracks) > 0:
                     to_keep = []
                     for i in range(len(act_tracks)):
-                        x = act_tracks[i]['box_kf'].x[0]
-                        y = act_tracks[i]['box_kf'].x[1]
-                        if (act_tracks[i]['frames_since_last_detection'] > 7) and not (helper_player_tracking.valid_pixel_coordinate(x, y, width, height)):  # Filtering out those tracks with high uncertainty
-                            # If any of the pixel coordinate is  < 0 (out of screen) + is uncertain == player no longer in view
-                            not_in_view_tracks.append(act_tracks[i])
+                        court_x = act_tracks[i]['loc_kf'].x[0]
+                        court_y = act_tracks[i]['loc_kf'].x[1]
+                        player_ub = np.array([court_x, court_y]) 
+                
+                        ''' Converting court coordinate into current frame pixel coordinates '''
+                        player_pixel_coord_from_court = cv2.perspectiveTransform((player_ub.reshape(-1, 2)).astype(np.float32)[np.newaxis], inv_homog_transf)[0][0]              
+                        if (act_tracks[i]['frames_since_last_detection'] > 20) and not (helper_player_tracking.valid_pixel_coordinate(player_pixel_coord_from_court[0], player_pixel_coord_from_court[1], width, height)):  # Filtering out those tracks with high uncertainty
+                            # If any of the pixel coordinate is  < 0 (out of screen) + > 15 frames since last detection
+                            target_track_past_act_track = deepcopy(act_tracks[i])
+                            target_track_not_in_view_track = deepcopy(act_tracks[i])
+                            past_act_tracks.append(target_track_past_act_track)
+                            '''For not_in_view_tracks, keep a counter of number of consecutive frames it is inside it.
+                            This value is used to remove tracks in not_in_view_tracks which have been inside for too long'''
+                            target_track_not_in_view_track['number_frames_in_not_in_view_tracks'] = 0
+                            not_in_view_tracks.append(target_track_not_in_view_track)
                         elif act_tracks[i]['frames_since_last_detection'] > 75:
                             '''
                             Set high value to ensure we are very certain before we delete tracks. Those tracks which should be deleted
-                            but havent reach 1e6 -- are still okay since we have measures put in place (to only use those where 
+                            but havent reach 75 frames -- are still okay since we have measures put in place (to only use those where 
                             max_p < MAX_P). 
-                            If track p > 1e5 but still within frame, we keep as actual track first (only delete when confident) and only
-                            put it into not_in_view_tracks when its definitely out of frame
+                            If track frames > 20 but still within frame, we keep as actual track first (only delete when confident) and only
+                            put it into not_in_view_tracks when its out of frame
                             '''
                             # If player uncertain (but location is still within frame) == track was probably wrong in the first place (wrong assignment to the team etc)
                             delt_tracks.append(act_tracks[i])
@@ -470,18 +483,31 @@ def run_player_tracking_ss(match_details, to_save):
                                                                                 not_in_view_boxs, gating = 75)  # [5:7] is court coordinate
 
                     for i in range(len(row_ind)):
-                        #Obtain old track id
-                        existing_track_id = not_in_view_tracks[row_ind[i]]['id']
-                        newly_detected_box = boxes_k3[col_ind[i]]
-                        #Create new holding track with old track id
+                        existing_track_id = not_in_view_tracks[row_ind[i]]['id'] #Obtain old track id
+                        newly_detected_box = boxes_k3[col_ind[i]] #Create new holding track with old track id
                         new_track = helper_player_tracking.create_new_track(box_kf, newly_detected_box, BOX_KF_INIT_P, loc_kf, LOC_KF_INIT_P, existing_track_id)
                         hold_tracks.append(new_track)
-                        
+
+                    # If we bring a not_in_view tracks back to holding track, we remove this track from not_in_view tracks
+                    not_in_view_tracks = [not_in_view_tracks[i] for i in range(len(not_in_view_tracks)) if i not in row_ind]
+
                     boxes_k4 = boxes_k3[[i for i in range(boxes_k3.shape[0]) if
                                         i not in col_ind]]  # Those which continue to not be assigned moves to next stage   
                 else:
                     boxes_k4 = boxes_k3
 
+                # Keep track of number of frames tracks in not_in_view tracks are there
+                for track in not_in_view_tracks:
+                    track["number_frames_in_not_in_view_tracks"] += 1
+
+                # Remove track from not_in_view tracks is too many frames has passed
+                if len(not_in_view_tracks) > 0:
+                    to_keep = []
+                    for track in not_in_view_tracks:
+                        if track["number_frames_in_not_in_view_tracks"] <= 250:
+                            to_keep.append(track)
+                    not_in_view_tracks = to_keep
+                                
                 # step 8.6 (Initialises holding tracks for new players)
                 for box in boxes_k4:                                           
                     new_track = helper_player_tracking.create_new_track(box_kf, box, BOX_KF_INIT_P, loc_kf, LOC_KF_INIT_P, TRACK_ID)
@@ -543,7 +569,7 @@ def run_player_tracking_ss(match_details, to_save):
                 track['smo_box_xs'] = smoothed_xs
                 track['smo_box_Ps'] = smoothed_Ps
 
-            for track in not_in_view_tracks:
+            for track in past_act_tracks:
                 smoothed_xs, smoothed_Ps, _, _ = track['box_kf'].rts_smoother(np.array(track['box_xs']).reshape(-1, 6, 1),
                                                                             np.array(track['box_Ps']).reshape(-1, 6, 6))
                 track['smo_box_xs'] = smoothed_xs
@@ -598,7 +624,7 @@ def run_player_tracking_ss(match_details, to_save):
                                     k, track['id'] + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
                                 out.close()
 
-                for track in not_in_view_tracks:
+                for track in past_act_tracks:
                     k0 = int(track['zs'][0][0])  # Extracts each actual track and then does some computation to draw them out
                     k_i = k - k0
                     if k >= k0 and k_i < track['smo_box_xs'].shape[0]:
