@@ -237,6 +237,12 @@ def run_player_tracking_ss(match_details, to_save):
                     [cv2.rectangle(frame, tuple(box[0:2]), tuple(box[2:4]), (255, 0, 0), 1) for box in rounded_box]
                     [cv2.circle(std_img_copy, tuple(c), 5, (255, 0, 0), 1) for c in rounded_loc]  # Printing player court position on court outline
 
+                    '''Plotting plane of view on court image'''
+                    pixel_boundaries = [[0,0], [0, height], [width, height], [width, 0]] #The homography transformation of this is wrong
+                    court_boundaries = [cv2.perspectiveTransform((np.array(bound).reshape(-1, 2)).astype(np.float32)[np.newaxis], homog_transf)[0][0] for bound in pixel_boundaries]
+                    court_boundaries = np.array(court_boundaries, np.int32) #plotting of polylines must be int
+                    cv2.polylines(std_img_copy, [court_boundaries], True, (192, 192, 192), 2)
+                    
                 # step 1, filter out persons outside the court
                 if boxes_k_all_classes.size > 0:
                     '''Removing player based on court coordinates'''
@@ -557,7 +563,7 @@ def run_player_tracking_ss(match_details, to_save):
 
                 cv2.imshow('frame', frame)
                 cv2.imshow('std_img', std_img_copy)
-                cv2.waitKey(10)
+                cv2.waitKey(0)
                 # print(k)
                 t += PER_FRAME
 
