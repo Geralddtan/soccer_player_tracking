@@ -19,11 +19,11 @@ def run_player_tracking_ss(match_details, to_save):
         PER_FRAME = 1000 / FPS
         CSV_FILES = "full_image_color_hist_michael_hellinger_michael_npz" 
         DT_CSV = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/ALL_CSV/%s/player_detection_colorhist/m-%03d-player-dt25-team-%d-%d.csv' % (CSV_FILES,MATCH_ID, START_MS, END_MS)
-        DT_THRESHOLD = 0.6
+        DT_THRESHOLD = 0.5
         COLOR_THRESHOLD = 0.6 # 0.2 # 0.6
         MAX_P = 1000
         TEAM_OPTIONS = [0,1,2,3,4]
-        OUT_CSV_FOLDER = "with_reassignment/niv_tracks_with_reassignment_use_frames_last_det_inv_homog_impl_strict_niv_niv_removal"
+        OUT_CSV_FOLDER = "with_reassignment/niv_tracks_with_reassignment_use_frames_last_det_inv_homog_impl_strict_niv_niv_removal_low_det_threshold"
         OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/%s/data/m-%03d.txt" % (OUT_CSV_FOLDER, MATCH_ID)
         ID0 = 1
         TRACK_ID = 0
@@ -557,7 +557,7 @@ def run_player_tracking_ss(match_details, to_save):
 
                 cv2.imshow('frame', frame)
                 cv2.imshow('std_img', std_img_copy)
-                cv2.waitKey(1)
+                cv2.waitKey(10)
                 # print(k)
                 t += PER_FRAME
 
@@ -667,7 +667,7 @@ def run_player_tracking_ss(match_details, to_save):
                 #                 # Removed "+ len(act_tracks)"
 
                 cv2.imshow('frame', frame)
-                cv2.waitKey(1)
+                cv2.waitKey(40)
                 t += PER_FRAME
             
             ID0 = ID0 + len(act_tracks) + len(not_in_view_tracks)
