@@ -9,7 +9,7 @@ import helper_player_tracking
 
 pd.options.display.float_format = '{:.6f}'.format
 
-def run_player_tracking_ss(match_details, to_save):
+def run_player_tracking_ss(match_details, to_save, save_all_details):
     for detail in match_details:
         MATCH_ID = detail[0]
         START_MS = detail[1]  # 61680   #91680
@@ -24,9 +24,16 @@ def run_player_tracking_ss(match_details, to_save):
         MAX_P = 1000
         TEAM_OPTIONS = [0,1,2,3,4]
         OUT_CSV_FOLDER = "with_reassignment/niv_tracks_with_reassignment_use_frames_last_det_inv_homog_impl_strict_niv_niv_removal_low_det_threshold"
-        OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/soccer-player-test/%s/data/m-%03d.txt" % (OUT_CSV_FOLDER, MATCH_ID)
+        if save_all_details:
+            MOT_CHALLENGE_FOLDER = "soccer-player-test-with-team"
+        else:
+            MOT_CHALLENGE_FOLDER = "soccer-player-test"
+        OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/%s/%s/data/m-%03d.txt" % (MOT_CHALLENGE_FOLDER, OUT_CSV_FOLDER, MATCH_ID)
         ID0 = 1
         TRACK_ID = 0
+        COURT_BOUNDARIES = {}
+        HOMOG_TRANSF = {}
+        ALL_FRAMES = {}
         for team in TEAM_OPTIONS:
             TEAM = team # 0=team1, 1=team1_keeper, 2=team2, 3=team2_keeper, 4=referee
             DEBUG = True
@@ -202,9 +209,13 @@ def run_player_tracking_ss(match_details, to_save):
                 ret, frame = cap.read()
                 height, width = frame.shape[0:2]
                 k = int(round((t - START_MS) / PER_FRAME)) + 1
+                if k not in ALL_FRAMES:
+                    ALL_FRAMES[k] = frame
                 boxes_k = player_boxes[player_boxes[:, 0] == k]  # Filtering predictions to only be from that specific frame
                 boxes_k_all_classes = player_boxes_all_classes[player_boxes_all_classes[:, 0] == k]  # Filtering predictions to only be from that specific frame
                 homog_transf =  helper_player_tracking.get_H(t, MATCH_ID, court_gt, std_court_points)
+                if k not in HOMOG_TRANSF:
+                    HOMOG_TRANSF[k] = homog_transf
                 inv_homog_transf = np.linalg.inv(homog_transf)
                 std_img_copy = std_img.copy()  # Court visualisation
                 
@@ -242,6 +253,8 @@ def run_player_tracking_ss(match_details, to_save):
                     court_boundaries = [cv2.perspectiveTransform((np.array(bound).reshape(-1, 2)).astype(np.float32)[np.newaxis], homog_transf)[0][0] for bound in pixel_boundaries]
                     court_boundaries = np.array(court_boundaries, np.int32) #plotting of polylines must be int
                     cv2.polylines(std_img_copy, [court_boundaries], True, (192, 192, 192), 2)
+                    if k not in COURT_BOUNDARIES:
+                        COURT_BOUNDARIES[k] = court_boundaries
                     
                 # step 1, filter out persons outside the court
                 if boxes_k_all_classes.size > 0:
@@ -558,8 +571,7 @@ def run_player_tracking_ss(match_details, to_save):
                         [cv2.rectangle(frame, tuple(box[0:2]), tuple(box[2:4]), (0, 255, 255), 1) for box in rounded_box]
                         act_track_xys = np.array([track['loc_kf'].x[0:2] for track in act_tracks]).reshape(-1, 2)
                         rounded_loc = np.round(act_track_xys).astype(int)
-                        [cv2.circle(std_img_copy, tuple(c), 5, (0, 255, 255), 1) for c in
-                        rounded_loc]  # Printing on court coordinate
+                        [cv2.circle(std_img_copy, tuple(c), 5, (0, 255, 255), 1) for c in rounded_loc]  # Printing on court coordinate
 
                 cv2.imshow('frame', frame)
                 cv2.imshow('std_img', std_img_copy)
@@ -606,6 +618,7 @@ def run_player_tracking_ss(match_details, to_save):
                 ret, frame = cap.read()
                 height, width = frame.shape[0:2]
                 k = int(round((t - START_MS) / PER_FRAME)) + 1
+                homog_transf = HOMOG_TRANSF[k]
                 for track in act_tracks:
                     k0 = int(track['zs'][0][0])   # k0 is the first frame at which this track was generated (came into view)
                     # Extracts each actual track and then does some computation to draw them out
@@ -622,13 +635,21 @@ def run_player_tracking_ss(match_details, to_save):
                             cv2.rectangle(frame, (int(rounded_box[0]), int(rounded_box[1])),
                                         (int(rounded_box[2]), int(rounded_box[3])), color_list[track['id'] % len(color_list)], 1)
                             # cv2.rectangle(frame, tuple(rounded_box[0:2]), tuple(rounded_box[2:4]), color_list[track_i%len(color_list)], 1)
+                            x1, y1, w, h =  box[0], box[1], box[2] - box[0], box[3] - box[1]
                             print('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1' % (
-                                k, track['id'] + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
+                                k, track['id'] + ID0, x1, y1, w, h))
                             if to_save:
-                                out = open(OUT_CSV, 'a+')
-                                out.write('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1\n' % (
-                                    k, track['id'] + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
-                                out.close()
+                                if save_all_details:
+                                    out = open(OUT_CSV, 'a+')
+                                    court_x, court_y = helper_player_tracking.xywh_image_to_court(x1, y1, w, h, homog_transf)
+                                    out.write('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%d\n' % (
+                                        k, track['id'] + ID0, x1, y1, w, h, court_x, court_y, team))
+                                    out.close()
+                                else:
+                                    out = open(OUT_CSV, 'a+')
+                                    out.write('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1\n' % (
+                                        k, track['id'] + ID0, x1, y1, w, h))
+                                    out.close()
 
                 for track in past_act_tracks:
                     k0 = int(track['zs'][0][0])  # Extracts each actual track and then does some computation to draw them out
@@ -645,36 +666,27 @@ def run_player_tracking_ss(match_details, to_save):
                             cv2.rectangle(frame, (int(rounded_box[0]), int(rounded_box[1])),
                                         (int(rounded_box[2]), int(rounded_box[3])), color_list[track['id'] % len(color_list)], 1)
                             # cv2.rectangle(frame, tuple(rounded_box[0:2]), tuple(rounded_box[2:4]), color_list[track_i%len(color_list)], 1)
+                            x1, y1, w, h =  box[0], box[1], box[2] - box[0], box[3] - box[1]
                             print('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1' % (
-                                k, track['id'] + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
+                                k, track['id'] + ID0, x1, y1, w, h))
                             if to_save:
-                                out = open(OUT_CSV, 'a+')
-                                out.write('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1\n' % (
-                                    k, track['id'] + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
-                                out.close()
+                                if save_all_details:
+                                    out = open(OUT_CSV, 'a+')
+                                    court_x, court_y = helper_player_tracking.xywh_image_to_court(x1, y1, w, h, homog_transf)
+                                    out.write('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%0.3f,%d\n' % (
+                                        k, track['id'] + ID0, x1, y1, w, h, court_x, court_y, team))
+                                    out.close()  
+                                else:
+                                    out = open(OUT_CSV, 'a+')
+                                    out.write('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1\n' % (
+                                        k, track['id'] + ID0, x1, y1, w, h))
+                                    out.close()
                                 
-                # for track in delt_tracks:
-                #     k0 = int(track['zs'][0][0])
-                #     k_i = k - k0
-                #     if k >= k0 and k_i < track['smo_box_xs'].shape[0]:
-                #         box = track['smo_box_xs'][k_i, 0:4]
-                #         box[0] = box[0] - box[2] / 2
-                #         box[1] = box[1] - box[3] / 2
-                #         box[2] = box[0] + box[2]
-                #         box[3] = box[1] + box[3]
-                #         max_P = np.max(track['smo_box_Ps'][k_i, 0:4, 0:4])
-                #         if box[0] < width and box[2] >= 0 and box[1] < height and box[3] >= 0 and max_P < MAX_P:
-                #             rounded_box = np.round(box).astype(int)
-                #             # cv2.rectangle(frame, (int(rounded_box[0]), int(rounded_box[1])),
-                #             #             (int(rounded_box[2]), int(rounded_box[3])), color_list[track['id'] % len(color_list)], 1)
-                #             # cv2.rectangle(frame, tuple(rounded_box[0:2]), tuple(rounded_box[2:4]), color_list[track_i%len(color_list)], 1)
-                #             print('%d,%d,%0.3f,%0.3f,%0.3f,%0.3f,-1,-1,-1,-1' % (
-                #                 k, track['id'] + ID0, box[0], box[1], box[2] - box[0], box[3] - box[1]))
-                #                 # Removed "+ len(act_tracks)"
-
                 cv2.imshow('frame', frame)
-                cv2.waitKey(40)
+                cv2.waitKey(0)
                 t += PER_FRAME
             
             ID0 = ID0 + len(act_tracks) + len(not_in_view_tracks)
             print('# of act tracks = %d, # of del tracks = %d' % (len(act_tracks), len(delt_tracks)))
+
+
