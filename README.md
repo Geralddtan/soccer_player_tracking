@@ -1,8 +1,6 @@
 # Introduction
 
-Good quality football tracking data forms the basis of many forms of football analytics that can be performed. Access to quality tracking data can leading to increased possbilities of analytics for football clubs around the world. This can range from the analysis of individual players' movement for player recruitment purposes to identifying best offensive and defensive build up play formations for tactical analysis. Tracking data can also be merged with action spotting football data to form a hollistic understanding of a football match. These analysis are just the tip of the iceburg when it comes to the potential unleashed with player tracking data. However, such good quality data is often hard to obtain, often requiring paid services.
-
-This project aims to automate this collection of good quality tracking data. This player tracking system is able to:
+This project aims to automate the collection of good quality tracking data. This player tracking system is able to:
 
 1. Detect Players on the Football Pitch
 2. Classify players into 5 distinct classes
@@ -11,7 +9,9 @@ This project aims to automate this collection of good quality tracking data. Thi
    3. Team B Outfield Players
    4. Team B Goalkeeper
    5. Referee
-3. Provide unique track identifiers for each track even on occasions of player occlusions.
+3. Provide unique track identifiers for each track even on occasions of player occlusion.
+
+Good quality football tracking data is foundational to performing many types of football analytics. This can range from the analysis of individual players' movement for player recruitment purposes, to identifying best offensive and defensive build up play formations for tactical analysis. Tracking data can also be merged with action spotting football data to form a hollistic understanding of a football match. These analyses are just the tip of the iceburg when it comes to the potential unleashed with player tracking data. However, such good quality data is often hard to obtain, often requiring paid services. This project aims to automate thie of good quality tracking data.
 
 ## Demo
 
