@@ -6,6 +6,8 @@ This repository contains code for Soccer Player Tracking. We make use of Detectr
 
 A demo video showcasing the player tracking and classification capabilities can be seen in the video down below. As can be seen, we are able to classify players into 5 distinct classes, Team A Outfield & Goalkeeper, Team B Outfield & Goalkeeper and the referee. We are also able to provide unique track identifiers for each track even on occasions of player occlusions.
 
+https://user-images.githubusercontent.com/34560370/159211321-073ef804-7ce3-4e2c-a133-610e98c4b0a1.mp4
+
 ## Overall Flow
 
 ![alt text](./demo/overall-flow-chart.png)
