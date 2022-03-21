@@ -1,8 +1,8 @@
 # Introduction
 
-This repository contains code for Football Player Tracking.
+Good quality football tracking data forms the basis of many forms of football analytics that can be performed. Access to quality tracking data can leading to increased possbilities of analytics for football clubs around the world. This can range from the analysis of individual players' movement for player recruitment purposes to identifying best offensive and defensive build up play formations for tactical analysis. Tracking data can also be merged with action spotting football data to form a hollistic understanding of a football match. These analysis are just the tip of the iceburg when it comes to the potential unleashed with player tracking data. However, such good quality data is often hard to obtain, often requiring paid services.
 
-We are able to:
+This project aims to automate this collection of good quality tracking data. This player tracking system is able to:
 
 1. Detect Players on the Football Pitch
 2. Classify players into 5 distinct classes
@@ -13,9 +13,9 @@ We are able to:
    5. Referee
 3. Provide unique track identifiers for each track even on occasions of player occlusions.
 
-A demo video showcasing the player tracking and classification capabilities can be seen in the video down below.
-
 ## Demo
+
+A demo video showcasing the player tracking and classification capabilities can be seen in the video down below.
 
 https://user-images.githubusercontent.com/34560370/159212411-25938db2-f400-4952-bc93-db0d1af520e8.mp4
 
@@ -27,7 +27,7 @@ Our method contains of 3 main steps, Player Detection, Player Classification and
 
 ## Player Detection
 
-Player detection is performed using Detectron2 to obtain player bounding box and segmentation masks of football players on the pitch.
+Player detection is performed using [Detectron2](https://github.com/facebookresearch/detectron2) to obtain player bounding box and segmentation masks of football players on the pitch.
 
 ## Player Classification
 
@@ -47,4 +47,4 @@ Bounding boxes detected in the Player Detection step are utilised in the Player 
 
 ## Performing Tracking
 
-An end-to-end workflow will be released soon!
+A workflow pipeline will be released soon!
