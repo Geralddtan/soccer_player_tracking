@@ -4,7 +4,7 @@ import helper_player_tracking
 import numpy as np
 
 # match_details = [[901, 4032000, 4040000, 25], [904, 6537000, 6547000, 30], [906, 526000, 531960, 25], [907, 77000, 81960, 25], [908, 61680, 67040, 25]]
-match_details = [[907, 77000, 81960, 25]]
+match_details = [[901, 4032000, 4040000, 25], [908, 61680, 67040, 25], [906, 526000, 531960, 25],  [904, 6537000, 6547000, 30]]
 
 for detail in match_details:
     MATCH_ID = detail[0]
@@ -76,5 +76,5 @@ for detail in match_details:
         if (k == 1) & (MATCH_ID == 901):
             cv2.waitKey(0)
         else:
-            cv2.waitKey(30)
+            cv2.waitKey(25)
         t += PER_FRAME  

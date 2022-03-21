@@ -2,3 +2,5 @@
 player_tracking_ss_v1.cpython-36.pyc
 *.pyc
 /demo/old/*
+/demo/util/*
+/demo/final-demo/*
