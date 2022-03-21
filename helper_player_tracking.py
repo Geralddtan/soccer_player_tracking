@@ -33,8 +33,8 @@ def get_standard_court(court_points, img_size=(896, 896, 3), sport='soccer', lin
         cv2.rectangle(img, tuple(points[23]), tuple(points[26]), (255, 0, 0), line_thickness)
         cv2.line(img, tuple(points[16]), tuple(points[18]), (255, 0, 0), line_thickness)
         cv2.circle(img, tuple(points[17]), 73, (255, 0, 0), line_thickness)
-        cv2.circle(img, tuple(points[10]), 3, (0, 0, 255), -1)
-        cv2.circle(img, tuple(points[29]), 3, (0, 0, 255), -1)
+        cv2.circle(img, tuple(points[10]), 3, (255, 0, 0), -1)
+        cv2.circle(img, tuple(points[29]), 3, (255, 0, 0), -1)
         return img, court_points[:, ::-1] * 8 + [(img_size[1] - court_points[19, 1] * 8) / 2, img_size[0] / 2]
 
 def iou(bbox, candidates):  # copied from Deep_Sort

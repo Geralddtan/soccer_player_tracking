@@ -19,7 +19,7 @@ def run_player_tracking_ss(match_details, to_save, save_all_details):
         PER_FRAME = 1000 / FPS
         CSV_FILES = "full_image_color_hist_michael_hellinger_michael_npz" 
         DT_CSV = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/ALL_CSV/%s/player_detection_colorhist/m-%03d-player-dt25-team-%d-%d.csv' % (CSV_FILES,MATCH_ID, START_MS, END_MS)
-        DT_THRESHOLD = 0.5
+        DT_THRESHOLD = 0.5   
         COLOR_THRESHOLD = 0.6 # 0.2 # 0.6
         MAX_P = 1000
         TEAM_OPTIONS = [0,1,2,3,4]
@@ -575,7 +575,7 @@ def run_player_tracking_ss(match_details, to_save, save_all_details):
 
                 cv2.imshow('frame', frame)
                 cv2.imshow('std_img', std_img_copy)
-                cv2.waitKey(0)
+                cv2.waitKey(1)
                 # print(k)
                 t += PER_FRAME
 
@@ -683,7 +683,7 @@ def run_player_tracking_ss(match_details, to_save, save_all_details):
                                     out.close()
                                 
                 cv2.imshow('frame', frame)
-                cv2.waitKey(0)
+                cv2.waitKey(1)
                 t += PER_FRAME
             
             ID0 = ID0 + len(act_tracks) + len(not_in_view_tracks)
