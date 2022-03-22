@@ -15,13 +15,19 @@ This project aims to automate the collection of good quality tracking data. This
 
 Good quality football tracking data is foundational to performing many types of football analytics. This can range from the analysis of individual players' movement for player recruitment purposes, to identifying best offensive and defensive build up play formations for tactical analysis. Tracking data can also be merged with action spotting football data to form a hollistic understanding of a football match. These analyses are just the tip of the iceburg when it comes to the potential unleashed with player tracking data. However, such good quality data is often hard to obtain, often requiring paid services. This project aims to automate the collection of good quality tracking data.
 
-## Demo
+# Demo
 
-A demo video showcasing the player tracking and classification capabilities can be seen in the video down below.
+A demo video showcasing our player tracking and classification capabilities can be seen in the video down below.
 
 https://user-images.githubusercontent.com/34560370/159212411-25938db2-f400-4952-bc93-db0d1af520e8.mp4
 
+# Results
+
+We manually labelled ground truth tracking data for 5 different matches consisting of about 1000 frames and 90 unique players. We use the popular ![https://github.com/JonathonLuiten/TrackEval](TrackEval) object tracking evaluation code and utilise the MOTA metrics, a popular multi object tracking metric also used in the ![https://motchallenge.net/results/MOT20/](MOT Challenge Benchmarking). Our player tracking solution obtains an average MOTA score of **94.028**.
+
 # Overview
+
+This section below gives an overview of our player tracking implementation.
 
 ![alt text](./demo/overall-flow-chart.png)
 
@@ -41,11 +47,14 @@ Bounding boxes detected in the Player Detection step are utilised in the Player 
 
 ## High Level Overview of Source Files
 
-- player_assign_team.py: Performs Player Detection and Classification to classify detected players into their classes.
-- player_tracking_ss_v1.py: Performs Player Tracking.
-- player_tracking_compute.py: Helper file to perform player tracking.
-- visualise_all_players.py: Visualises all players with its corresponding court coordinates as shown in the Demo Video.
-- generate_detectron_predictions.py: Generates Detectron Predictions.
+In the top level directory lies the executable scripts used in player tracking. The main entry point is `player_tracking_ss_v1.py` which is the player tracking script. An overview of some important scripts are given below.
+
+- `player_assign_team.py`: Performs Player Detection and Classification to classify detected players into their classes.
+- `player_tracking_ss_v1.py`: Performs Player Tracking.
+- `helper_player_tracking.py`: Contains relevant methods used in player tracking.
+- `player_tracking_compute.py`: Helper file to perform player tracking.
+- `visualise_all_players.py`: Visualises all players with its corresponding court coordinates as shown in the Demo Video.
+- `generate_detectron_predictions.py`: Generates Detectron Predictions.
 
 ## Performing Tracking
 
