@@ -23,7 +23,7 @@ https://user-images.githubusercontent.com/34560370/159212411-25938db2-f400-4952-
 
 # Results
 
-We manually labelled ground truth tracking data for 5 different matches consisting of about 1000 frames and 90 unique players. We use the popular ![https://github.com/JonathonLuiten/TrackEval](TrackEval) object tracking evaluation code and utilise the MOTA metrics, a popular multi object tracking metric also used in the ![https://motchallenge.net/results/MOT20/](MOT Challenge Benchmarking). Our player tracking solution obtains an average MOTA score of **94.028**.
+We manually labelled ground truth tracking data for 5 different matches consisting of about 1000 frames and 90 unique players. We use the popular [TrackEval](https://github.com/JonathonLuiten/TrackEval) object tracking evaluation code and utilise the MOTA metrics, a popular multi object tracking metric also used in the [MOT Challenge Benchmarking](https://motchallenge.net/results/MOT20/). Our player tracking solution obtains an average MOTA score of **94.028**.
 
 # Overview
 
