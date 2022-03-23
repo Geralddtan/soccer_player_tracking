@@ -1,6 +1,6 @@
 # Introduction
 
-This project aims to automate the collection of good quality tracking data. This player tracking system is able to:
+This project aims to create a comprehensive football player tracking system. It is able to
 
 1. Detect Players on the Football Pitch
 2. Classify players into 5 distinct classes
@@ -9,11 +9,12 @@ This project aims to automate the collection of good quality tracking data. This
    3. Team B Outfield Players
    4. Team B Goalkeeper
    5. Referee
-3. Provide unique track identifiers for each track even on occasions of player occlusion.
+3. Provide unique track identifiers for each track across frames
+   1. Perform track reassignment for player who re-enter the frame
 
 # Project Motivation & Use Cases
 
-Good quality football tracking data is foundational to performing many types of football analytics. This can range from the analysis of individual players' movement for player recruitment purposes, to identifying best offensive and defensive build up play formations for tactical analysis. Tracking data can also be merged with action spotting football data to form a hollistic understanding of a football match. These analyses are just the tip of the iceburg when it comes to the potential unleashed with player tracking data. However, such good quality data is often hard to obtain, often requiring paid services. This project aims to automate the collection of good quality tracking data.
+Access to good quality tracking data is foundational to performing many types of football analytics. This can range from the analysis of individual players' movement for player recruitment purposes, to identifying best offensive and defensive build up play formations for tactical analysis. Tracking data can also be merged with action spotting data to form a hollistic understanding of a football match. These analyses are just the tip of the iceburg when it comes to the potential unleashed with player tracking data. However, such good quality data is often hard to obtain, often requiring paid services. This project aims to create a comprehensive system to obtain good quality tracking data of football matches from broadcast videos. This allows the easy generation of tracking data from broadcast videos, unleashing the possibilities of analytics in football.
 
 # Demo
 
@@ -23,7 +24,17 @@ https://user-images.githubusercontent.com/34560370/159212411-25938db2-f400-4952-
 
 # Results
 
-We manually labelled ground truth tracking data for 5 different matches consisting of about 1000 frames and 90 unique players. We use the popular [TrackEval](https://github.com/JonathonLuiten/TrackEval) object tracking evaluation code and utilise the MOTA metrics, a popular multi object tracking metric also used in the [MOT Challenge Benchmarking](https://motchallenge.net/results/MOT20/). Our player tracking solution obtains an average MOTA score of **94.028**.
+We manually labelled ground truth tracking data for 5 different matches consisting of about 1000 frames and 90 unique players. We use the popular [TrackEval](https://github.com/JonathonLuiten/TrackEval) object tracking evaluation code and utilise the MOTA metrics, a popular multi object tracking metric also used in the [MOT Challenge Benchmarking](https://motchallenge.net/results/MOT20/). Our player tracking solution obtains an average MOTA score of **94.028** which roughly represents 94% of all accurate targets being accurately detected and tracked throughout its lifespan.
+
+## Our Contribution
+
+Our contribution lies in our novel player tracking architecture which involves certain implementations that aid in our tracking process
+
+- We make use of a concept of tracking iterations (tracking players of specific classes separately) to reduce occurences of player occlusion while giving users the ability to focus tracking on classes they are interested in
+- We utilise Kalman Filters in both image pixel coordinates and court coordinates. Image pixel coordinates are useful in performing player track assignment for relatively straightforward assignment while court coordinates aids the process for tougher assignments where tracks are far away from the detected bounding box. The usage of both sets of coordinates ensures a comprehensive system for player track assignment.
+- We create a novel player track holder implementation which stores player tracks based on its certainty and characteristics. This allows us to place greater attention on certain tracks, delete faulty tracks and perform track re-identification for players who re-enter the frame.
+
+The fusion of these 3 unique implementations significantly improve our player tracking capabilities.
 
 # Overview
 

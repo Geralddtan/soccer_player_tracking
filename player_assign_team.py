@@ -9,10 +9,10 @@ import helper
 # settings and parameters
 MATCH_ID = 904
 VIDEO = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Deep Sort/detectron2-deepsort-pytorch/original_vids/m-%03d.mp4'%MATCH_ID
-START_MS = 6537000   # possible sequence [58400, 67040], [67840, 72840], [75000, 82400], [91680, 106880], [108360, 118440], [120760,136040]
-END_MS = 6547000 # 531960
+START_MS = 6537000 
+END_MS = 6547000
 FPS = 30
-PER_FRAME = 1000/FPS  # 40ms per frame
+PER_FRAME = 1000/FPS
 MIN_DETECTOR_SCORE = 0.25
 CSV_FILES = "Colorhist_optimized_intersect_csv"
 COLOR_HIST_NPZ = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Ground Truth Player Tracking Data/M-%d-GroundTruth/soccer-player-npz/M-%d-player-npz.npz"%(MATCH_ID, MATCH_ID)
