@@ -2,8 +2,6 @@ import pandas as pd
 import numpy as np
 import cv2
 from filterpy.kalman import KalmanFilter
-from filterpy.stats import mahalanobis
-from scipy.optimize import linear_sum_assignment
 from copy import deepcopy
 import helper_player_tracking
 
@@ -11,30 +9,26 @@ pd.options.display.float_format = '{:.6f}'.format
 
 def run_player_tracking_ss(match_details, to_save, save_all_details):
     for detail in match_details:
-        MATCH_ID = detail[0]
-        START_MS = detail[1]
-        END_MS = detail[2]
-        VIDEO = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Deep Sort/detectron2-deepsort-pytorch/original_vids/m-%03d.mp4' % MATCH_ID
-        FPS = detail[3]
+        # Match Details Parsed from player_tracking_compute.py [MATCH_ID, START_MS, END_MS, FPS of Video]
+        MATCH_ID, START_MS, END_MS, FPS = detail[0], detail[1], detail[2], detail[3]
         PER_FRAME = 1000 / FPS
-        CSV_FILES = "full_image_color_hist_michael_hellinger_michael_npz" 
-        DT_CSV = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/ALL_CSV/%s/player_detection_colorhist/m-%03d-player-dt25-team-%d-%d.csv' % (CSV_FILES,MATCH_ID, START_MS, END_MS)
-        DT_THRESHOLD = 0.5   
-        COLOR_THRESHOLD = 0.6
-        MAX_P = 1000
+
+        # Tracking Parameters
+        DT_THRESHOLD, COLOR_THRESHOLD, MAX_P = 0.5, 0.6, 1000
         TEAM_OPTIONS = [0,1,2,3,4]
-        OUT_CSV_FOLDER = "with_reassignment/niv_tracks_with_reassignment_use_frames_last_det_inv_homog_impl_strict_niv_niv_removal_low_det_threshold"
-        if save_all_details:
-            MOT_CHALLENGE_FOLDER = "soccer-player-test-with-team"
-        else:
-            MOT_CHALLENGE_FOLDER = "soccer-player-test"
-        OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/Checking/TrackEval/data/trackers/mot_challenge/%s/%s/data/m-%03d.txt" % (MOT_CHALLENGE_FOLDER, OUT_CSV_FOLDER, MATCH_ID)
         ID0 = 1
         TRACK_ID = 0
+
+        # Initialised Objects for Storage
         COURT_BOUNDARIES = {}
         HOMOG_TRANSF = {}
         ALL_FRAMES = {}
-        for team in TEAM_OPTIONS:
+        
+        # File Paths
+        VIDEO = './m-%03d.mp4' % MATCH_ID #File Path to Match Video
+        DT_CSV = './m-%03d-player-team-%d-%d.csv' % (MATCH_ID, START_MS, END_MS) #File Path to Player Classification CSV File from player_assign_team.py
+        OUT_CSV = "./m-%03d.txt" % (MATCH_ID) #File Path to final tracking data output file
+        for team in TEAM_OPTIONS: # Tracking Iterations according to team
             TEAM = team # 0=team1, 1=team1_keeper, 2=team2, 3=team2_keeper, 4=referee
             DEBUG = True
 

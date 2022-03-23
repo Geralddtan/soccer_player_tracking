@@ -7,16 +7,19 @@ import os
 import helper
 
 # settings and parameters
+
+#Match Details
 MATCH_ID = 904
-VIDEO = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Deep Sort/detectron2-deepsort-pytorch/original_vids/m-%03d.mp4'%MATCH_ID
 START_MS = 6537000 
 END_MS = 6547000
 FPS = 30
 PER_FRAME = 1000/FPS
 MIN_DETECTOR_SCORE = 0.25
-CSV_FILES = "Colorhist_optimized_intersect_csv"
-COLOR_HIST_NPZ = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Ground Truth Player Tracking Data/M-%d-GroundTruth/soccer-player-npz/M-%d-player-npz.npz"%(MATCH_ID, MATCH_ID)
-OUT_CSV = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Tracking Implementation/ALL_CSV/%s/player_detection_colorhist/m-%03d-player-dt%02d-team-%d-%d.csv'%(CSV_FILES, MATCH_ID, MIN_DETECTOR_SCORE*100, START_MS, END_MS)
+
+#File Path
+VIDEO = './m-%03d.mp4' % MATCH_ID #File Path to Match Video
+COLOR_HIST_NPZ = "./M-%d-player-npz.npz"%(MATCH_ID) # Player NPZ files (masked) from each class
+OUT_CSV = "./m-%03d.txt" % (MATCH_ID) #File Path to final tracking data output file
 DEBUG = True
 
 # Pre-trained object detector

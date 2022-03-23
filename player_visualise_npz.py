@@ -8,13 +8,13 @@ import helper
 
 # settings and parameters
 MATCH_ID = 901
-VIDEO = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Deep Sort/detectron2-deepsort-pytorch/original_vids/m-%03d.mp4'%MATCH_ID
-START_MS = 4032000   # possible sequence [58400, 67040], [67840, 72840], [75000, 82400], [91680, 106880], [108360, 118440], [120760,136040]
+VIDEO = './m-%03d.mp4'%MATCH_ID #File path to match video
+START_MS = 4032000
 END_MS = 4040000
 FPS = 25
 PER_FRAME = 1000/FPS  # 40ms per frame
 MIN_DETECTOR_SCORE = 0.25
-COLOR_HIST_NPZ = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Ground Truth Player Tracking Data/M-%d-GroundTruth/soccer-player-npz/M-%d-player-npz.npz"%(MATCH_ID, MATCH_ID)
+COLOR_HIST_NPZ = "./M-%d-player-npz.npz"%(MATCH_ID) #File path to NPZ file
 DEBUG = True
 
 def colorHist(frame):
@@ -37,26 +37,3 @@ if os.path.exists(COLOR_HIST_NPZ):
                 # cv2.imshow('player_%d_%d'%(i,j), player_imgs[i][j])
                 color_hist.append(colorHist(player_imgs[i][j])) #Append color histogram for all players
         team_color_hist[i] = np.mean(np.array(color_hist).reshape(-1, 4096), axis=0).astype(np.float32) #Average of x color histogram from each team
-
-
-# cap = cv2.VideoCapture(VIDEO)
-# t = START_MS
-# cap.set(0, t)
-# while t <= END_MS:
-#     ret, frame = cap.read()
-
-#     # player detection
-#     output = detector(frame)
-#     player_boxes = output['instances'][output['instances'].pred_classes == 0].pred_boxes.tensor.cpu().numpy()
-#     player_scores = output['instances'][output['instances'].pred_classes == 0].scores.cpu().numpy()
-#     player_masks = output['instances'][output['instances'].pred_classes == 0].pred_masks.cpu().numpy()
-
-#     if DEBUG:
-#         rounded_box = np.round(player_boxes).astype(np.int)
-#         [cv2.rectangle(frame, tuple(box[0:2]), tuple(box[2:4]), (0,255,255), 1) for box in rounded_box]
-#         cv2.imshow('frame', frame)
-#         cv2.waitKey(10)
-
-
-
-

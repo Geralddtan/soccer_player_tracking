@@ -10,7 +10,7 @@ import helper
 MATCH_ID = 901
 START_MS = 4032000  # 61680   #91680
 END_MS = 4040000 
-VIDEO = '/Users/geraldtan/Desktop/NUS Modules/Dissertation/Deep Sort/detectron2-deepsort-pytorch/original_vids/m-%03d.mp4'%MATCH_ID
+VIDEO = './m-%03d.mp4' % MATCH_ID #File Path to Match Video
 FPS = 25
 PER_FRAME = 1000/FPS  # 40ms per frame
 MIN_DETECTOR_SCORE = 0.25

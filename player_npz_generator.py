@@ -8,11 +8,11 @@ from detectron2.engine import DefaultPredictor
 import helper
 
 MATCH_ID = 906
-PLAYER_PICTURES_PATH = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Ground Truth Player Tracking Data/M-%d-GroundTruth/soccer-player-images/"%(MATCH_ID)
-MASKED_PLAYERS_PATH = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Ground Truth Player Tracking Data/M-%d-GroundTruth/soccer-player-images/all_masked_players/"%(MATCH_ID)
-MATCH_PICTURES_PATH = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Ground Truth Player Tracking Data/M-%d-GroundTruth/soccer-player-images/match_image/"%(MATCH_ID)
+PLAYER_PICTURES_PATH = "./soccer-player-images/" # File path containing folders representing each class
+MASKED_PLAYERS_PATH = "./soccer-player-images/all_masked_players/" # File path containing masked players
+MATCH_PICTURES_PATH = "./soccer-player-images/match_image/" #File path for player images to perform segmentation
 TEAM_CLASS = ['team-1/', 'team-1-gk/', 'team-2/', 'team-2-gk/', 'referee/']
-OUT_CSV = "/Users/geraldtan/Desktop/NUS Modules/Dissertation/Ground Truth Player Tracking Data/M-%d-GroundTruth/soccer-player-npz/"%(MATCH_ID)
+OUT_CSV = "./soccer-player-npz/" #File path containing final output location of NPZ file
 player_numpy_array = []
 
 # Pre-trained object detector
